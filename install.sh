@@ -231,12 +231,17 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔐 STEP 2: Verify your Google account"
+    echo "🔐 STEP 2: Set your Google email"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "This opens Google login to verify your email."
-    echo "Only this email will be able to access your browser."
-    echo ""
+    
+    # Check if we have a display (GUI available)
+    HAS_DISPLAY=false
+    if [[ "$OS" == "mac" ]]; then
+        HAS_DISPLAY=true
+    elif [ -n "$DISPLAY" ] && command -v xdg-open &> /dev/null; then
+        HAS_DISPLAY=true
+    fi
     
     # Check for Python
     PYTHON_CMD=""
@@ -246,17 +251,12 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         PYTHON_CMD="python"
     fi
     
-    if [ -z "$PYTHON_CMD" ]; then
-        echo "⚠️  Python not found. Falling back to manual email entry."
+    # Use OAuth only if we have display, otherwise manual entry
+    if [ "$HAS_DISPLAY" = true ] && [ -n "$PYTHON_CMD" ]; then
+        echo "This opens Google login to verify your email."
+        echo "Only this email will be able to access your browser."
         echo ""
-        read -p "Your Google email: " ALLOWED_EMAIL
-        read -p "Confirm email (type it again): " CONFIRM_EMAIL
         
-        if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
-            echo "❌ Emails don't match."
-            exit 1
-        fi
-    else
         # Run Google OAuth script
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         AUTH_OUTPUT=$($PYTHON_CMD "$SCRIPT_DIR/google-auth.py" 2>&1)
@@ -283,6 +283,21 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
                 echo "❌ Could not get email. Please try again."
                 exit 1
             fi
+        fi
+    else
+        # Headless server - manual entry with confirmation
+        echo "⚠️  IMPORTANT: Enter YOUR Google email."
+        echo "   This is the ONLY email that can access your browser."
+        echo "   If you enter the wrong email, you won't be able to get in!"
+        echo ""
+        read -p "Your Google email: " ALLOWED_EMAIL
+        echo ""
+        read -p "Confirm email (type it again): " CONFIRM_EMAIL
+        
+        if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
+            echo ""
+            echo "❌ Emails don't match. Run install again."
+            exit 1
         fi
     fi
     
