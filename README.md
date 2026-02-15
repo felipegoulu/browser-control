@@ -67,6 +67,9 @@ No app needed. Just a browser.
 ## Commands
 
 ```bash
+# Check status
+~/.openclaw/skills/browser-control/status.sh
+
 # Start everything (VNC + noVNC + tunnel)
 ~/.openclaw/skills/browser-control/start-tunnel.sh
 
@@ -76,6 +79,16 @@ No app needed. Just a browser.
 # See current URL and password
 cat ~/.openclaw/skills/browser-control/config.json
 ```
+
+## OpenClaw Integration
+
+The installer creates a `SKILL.md` that teaches OpenClaw how to:
+1. Check if browser-control is running
+2. Start it if needed
+3. Get the URL and password
+4. Send the link to you when login is required
+
+**You don't need to remember the commands** — OpenClaw reads the skill and handles it.
 
 ## Compatibility
 
@@ -127,15 +140,13 @@ cat ~/.openclaw/skills/browser-control/config.json
 
 ```
 ~/.openclaw/skills/browser-control/
+├── SKILL.md             # Instructions for OpenClaw
 ├── start-tunnel.sh      # Start all services + tunnel
 ├── stop-tunnel.sh       # Stop all services
+├── status.sh            # Check if running (returns JSON)
 ├── vnc-password         # Your VNC password
-├── config.json          # Current tunnel URL
+├── config.json          # Current tunnel URL + password
 └── start-chrome.sh      # (Mac only) Start Chrome with CDP
-
-~/.config/systemd/user/  # (Linux only)
-├── browser-control-vnc.service
-└── browser-control-novnc.service
 ```
 
 ## Security
