@@ -170,6 +170,17 @@ echo "This protects your browser with Google login."
 echo "Only YOUR Google account can access it."
 echo ""
 
+# Function to open URL in browser
+open_url() {
+    local url="$1"
+    if [[ "$OS" == "mac" ]]; then
+        open "$url" 2>/dev/null || true
+    else
+        # Linux - try various openers
+        xdg-open "$url" 2>/dev/null || sensible-browser "$url" 2>/dev/null || x-www-browser "$url" 2>/dev/null || echo "   Open manually: $url"
+    fi
+}
+
 # Check if already configured
 if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
     EXISTING_EMAIL=$(jq -r '.email' "$SKILL_DIR/ngrok-config.json" 2>/dev/null)
@@ -182,27 +193,62 @@ if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
 fi
 
 if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
-    echo "📋 Steps:"
-    echo "   1. Create free account at: https://ngrok.com/signup"
-    echo "   2. Copy your authtoken from: https://dashboard.ngrok.com/get-started/your-authtoken"
-    echo ""
     
-    read -p "Paste your ngrok authtoken: " NGROK_TOKEN
-    
-    if [ -z "$NGROK_TOKEN" ]; then
-        echo "❌ Authtoken required. Get it from https://dashboard.ngrok.com/get-started/your-authtoken"
-        exit 1
+    # Check if ngrok is already authenticated
+    if ngrok config check 2>/dev/null | grep -q "authtoken"; then
+        echo "✅ ngrok already authenticated"
+        NGROK_AUTHENTICATED=true
     fi
     
-    # Configure ngrok
-    ngrok config add-authtoken "$NGROK_TOKEN"
+    if [ "$NGROK_AUTHENTICATED" != "true" ]; then
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📝 STEP 1: Create ngrok account (free)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "Opening ngrok signup page..."
+        sleep 1
+        open_url "https://ngrok.com/signup"
+        echo ""
+        echo "👆 Sign up with Google or email (takes 30 seconds)"
+        echo ""
+        read -p "Press ENTER when you've created your account..."
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔑 STEP 2: Copy your authtoken"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "Opening authtoken page..."
+        sleep 1
+        open_url "https://dashboard.ngrok.com/get-started/your-authtoken"
+        echo ""
+        echo "👆 Click 'Copy' next to your authtoken"
+        echo ""
+        read -p "Paste your authtoken here: " NGROK_TOKEN
+        
+        if [ -z "$NGROK_TOKEN" ]; then
+            echo ""
+            echo "❌ Authtoken required."
+            echo "   Go to: https://dashboard.ngrok.com/get-started/your-authtoken"
+            exit 1
+        fi
+        
+        # Configure ngrok
+        ngrok config add-authtoken "$NGROK_TOKEN"
+        echo ""
+        echo "✅ ngrok authenticated!"
+    fi
     
     echo ""
-    echo "⚠️  IMPORTANT: Enter YOUR Google email"
-    echo "   Only this email can access the browser."
-    echo "   If you enter the wrong email, you won't be able to access it!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔐 STEP 3: Set your Google email"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    
+    echo "⚠️  IMPORTANT: This email is the ONLY one that"
+    echo "   can access your browser remotely."
+    echo ""
+    echo "   Enter the email you use to log into Google."
+    echo ""
     read -p "Your Google email: " ALLOWED_EMAIL
     
     if [ -z "$ALLOWED_EMAIL" ]; then
@@ -212,7 +258,7 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     # Validate email format
     if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        echo "❌ Invalid email format."
+        echo "❌ Invalid email format. Example: you@gmail.com"
         exit 1
     fi
     
@@ -226,7 +272,7 @@ EOF
     chmod 600 "$SKILL_DIR/ngrok-config.json"
     
     echo ""
-    echo "✅ ngrok configured for: $ALLOWED_EMAIL"
+    echo "✅ Configured! Only $ALLOWED_EMAIL can access."
 fi
 
 #######################################
