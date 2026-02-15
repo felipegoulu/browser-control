@@ -106,25 +106,22 @@ Your phone/browser
       └── Chromium ◄── OpenClaw (CDP :9222)
 ```
 
-## After reboot (Linux)
+## After reboot
 
-**What starts automatically:**
-- ✅ VNC server
-- ✅ noVNC web server
-
-**What you need to start manually:**
-- ❌ cloudflared tunnel
+Nothing starts automatically. Run this to start everything:
 
 ```bash
-# After reboot, just run:
 ~/.openclaw/skills/browser-control/start-tunnel.sh
+```
 
-# The URL changes each time. Check it with:
+This starts VNC + noVNC + cloudflared tunnel, and shows you the new URL.
+
+**Check current URL and password:**
+```bash
 cat ~/.openclaw/skills/browser-control/config.json
 ```
 
-> 💡 VNC and noVNC auto-start because the installer enables systemd services.
-> The tunnel isn't auto-started because the URL changes and you need to see it.
+> 💡 The tunnel URL changes each time you run `start-tunnel.sh`.
 
 ## Files created
 

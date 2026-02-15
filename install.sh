@@ -391,13 +391,9 @@ RestartSec=5
 WantedBy=default.target
 NOVNCSERVICE
 
-    # Enable services
     systemctl --user daemon-reload
-    systemctl --user enable browser-control-vnc.service 2>/dev/null || true
-    systemctl --user enable browser-control-novnc.service 2>/dev/null || true
     
     echo "✅ Systemd services created"
-    echo "   Auto-start on login enabled"
 fi
 
 #######################################
