@@ -14,6 +14,14 @@ cd browser-control
 bash install.sh
 ```
 
+### What it installs:
+
+- **VNC server** — Remote desktop (tightvncserver)
+- **noVNC** — VNC in the browser (no app needed)
+- **ngrok** — Secure tunnel with Google OAuth
+- **Chromium** — Browser for the agent to use
+- **xfce4** — Lightweight desktop environment
+
 ### What you'll see:
 
 **Step 1: ngrok authtoken**
