@@ -238,9 +238,60 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         exit 1
     fi
     
-    # Download and run Google OAuth script
+    # Create and run Google OAuth script
     GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
-    curl -fsSL "https://raw.githubusercontent.com/felipegoulu/browser-control/ngrok-oauth/google-auth.py" -o "$GOOGLE_AUTH_SCRIPT"
+    cat > "$GOOGLE_AUTH_SCRIPT" << 'PYTHONSCRIPT'
+#!/usr/bin/env python3
+import json, os, sys, urllib.request
+VERIFY_URL = "https://browser-control-auth.vercel.app"
+
+def read_input(prompt):
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    if not sys.stdin.isatty():
+        try:
+            with open('/dev/tty', 'r') as tty:
+                return tty.readline().strip()
+        except:
+            return input()
+    return input().strip()
+
+print("")
+print("1. Open this link in your browser:")
+print("")
+print(f"   👉 {VERIFY_URL}/verify")
+print("")
+print("2. Sign in with Google")
+print("3. Copy the 6-character code")
+print("")
+
+code = read_input("Enter code: ").strip().upper()
+
+if len(code) != 6:
+    print("❌ Invalid code (should be 6 characters)")
+    sys.exit(1)
+
+try:
+    url = f"{VERIFY_URL}/api/verify?code={code}"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Accept", "application/json")
+    with urllib.request.urlopen(req, timeout=30) as response:
+        data = json.loads(response.read().decode())
+        if "email" not in data:
+            print(f"❌ Invalid response: {data}")
+            sys.exit(1)
+        email = data["email"]
+        print("")
+        print(f"✅ Verified: {email}")
+        print("")
+        print(f"GOOGLE_EMAIL={email}")
+except urllib.error.HTTPError as e:
+    print("❌ Invalid or expired code" if e.code == 404 else f"❌ Error: {e.code} {e.reason}")
+    sys.exit(1)
+except Exception as e:
+    print(f"❌ Error: {e}")
+    sys.exit(1)
+PYTHONSCRIPT
     AUTH_OUTPUT=$($PYTHON_CMD "$GOOGLE_AUTH_SCRIPT" 2>&1)
     AUTH_EXIT=$?
     rm -f "$GOOGLE_AUTH_SCRIPT"
