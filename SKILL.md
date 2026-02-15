@@ -1,3 +1,8 @@
+---
+name: browser-control
+description: Remote browser access for login, 2FA, captcha, and manual verification. Use when you need the user to log into a website, complete 2FA/MFA, solve a captcha, or do any manual browser action.
+---
+
 # Browser Control
 
 Remote browser access for login, 2FA, captcha, and manual verification.
