@@ -1,11 +1,12 @@
 #!/bin/bash
 # Browser Control Skill - Installer
-# Installs VNC + noVNC + cloudflared automatically
+# Installs VNC + noVNC + ngrok with Google OAuth
 
 set -e
 
 echo "🖥️  Browser Control - Installer"
 echo "================================"
+echo ""
 
 #######################################
 # DETECT OS AND ARCHITECTURE
@@ -34,6 +35,7 @@ else
 fi
 
 echo "📍 OS: $OS | Arch: $ARCH"
+echo ""
 
 #######################################
 # CREATE DIRECTORIES
@@ -44,7 +46,7 @@ mkdir -p ~/.openclaw/workspace
 SKILL_DIR=~/.openclaw/skills/browser-control
 
 #######################################
-# GENERATE PASSWORD
+# GENERATE VNC PASSWORD
 #######################################
 
 VNC_PASSWORD=$(openssl rand -base64 6)
@@ -59,19 +61,19 @@ if [[ "$OS" == "linux" ]]; then
     echo "📦 Installing dependencies (Linux)..."
     
     sudo apt-get update
-    sudo apt-get install -y tightvncserver xfce4 xfce4-terminal xterm novnc websockify curl
+    sudo apt-get install -y tightvncserver xfce4 xfce4-terminal xterm novnc websockify curl jq
     
     # Chromium
     echo "📦 Installing Chromium..."
     sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
     
-    # Cloudflared (detect architecture)
-    if ! command -v cloudflared &> /dev/null; then
-        echo "📦 Installing cloudflared ($ARCH)..."
-        CLOUDFLARED_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH"
-        curl -L "$CLOUDFLARED_URL" -o /tmp/cloudflared
-        sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
-        sudo chmod +x /usr/local/bin/cloudflared
+    # ngrok
+    if ! command -v ngrok &> /dev/null; then
+        echo "📦 Installing ngrok ($ARCH)..."
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update
+        sudo apt-get install -y ngrok
     fi
     
     # Configure VNC
@@ -91,12 +93,8 @@ chromium-browser --no-sandbox --disable-gpu --remote-debugging-port=9222 2>/dev/
 XSTARTUP
     chmod +x ~/.vnc/xstartup
     
-    # Find Chromium binary
-    CHROMIUM_BIN=$(which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo "chromium-browser")
-    
     NOVNC_WEB="/usr/share/novnc"
     VNC_PORT=5901
-    VNC_DISPLAY=":1"
 
 #######################################
 # MAC INSTALLATION
@@ -112,7 +110,12 @@ elif [[ "$OS" == "mac" ]]; then
         exit 1
     fi
     
-    brew install websockify cloudflared novnc || true
+    brew install websockify ngrok jq || true
+    
+    # noVNC
+    if ! brew list novnc &>/dev/null; then
+        brew install novnc || true
+    fi
     
     # Find noVNC path
     NOVNC_WEB="$BREW_PREFIX/share/novnc"
@@ -124,7 +127,6 @@ elif [[ "$OS" == "mac" ]]; then
     fi
     
     VNC_PORT=5900
-    VNC_DISPLAY=""
     
     # On Mac, use system password
     echo "(your Mac password)" > $SKILL_DIR/vnc-password
@@ -156,34 +158,131 @@ CHROME
 fi
 
 #######################################
+# NGROK SETUP
+#######################################
+
+echo ""
+echo "========================================"
+echo "🔐 Security Setup (ngrok + Google OAuth)"
+echo "========================================"
+echo ""
+echo "This protects your browser with Google login."
+echo "Only YOUR Google account can access it."
+echo ""
+
+# Check if already configured
+if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
+    EXISTING_EMAIL=$(jq -r '.email' "$SKILL_DIR/ngrok-config.json" 2>/dev/null)
+    echo "Found existing config: $EXISTING_EMAIL"
+    read -p "Reconfigure? (y/N): " RECONFIG
+    if [[ ! "$RECONFIG" =~ ^[Yy]$ ]]; then
+        echo "Keeping existing config."
+        SKIP_NGROK_CONFIG=true
+    fi
+fi
+
+if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
+    echo "📋 Steps:"
+    echo "   1. Create free account at: https://ngrok.com/signup"
+    echo "   2. Copy your authtoken from: https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo ""
+    
+    read -p "Paste your ngrok authtoken: " NGROK_TOKEN
+    
+    if [ -z "$NGROK_TOKEN" ]; then
+        echo "❌ Authtoken required. Get it from https://dashboard.ngrok.com/get-started/your-authtoken"
+        exit 1
+    fi
+    
+    # Configure ngrok
+    ngrok config add-authtoken "$NGROK_TOKEN"
+    
+    echo ""
+    echo "⚠️  IMPORTANT: Enter YOUR Google email"
+    echo "   Only this email can access the browser."
+    echo "   If you enter the wrong email, you won't be able to access it!"
+    echo ""
+    
+    read -p "Your Google email: " ALLOWED_EMAIL
+    
+    if [ -z "$ALLOWED_EMAIL" ]; then
+        echo "❌ Email required for security."
+        exit 1
+    fi
+    
+    # Validate email format
+    if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        echo "❌ Invalid email format."
+        exit 1
+    fi
+    
+    # Save config
+    cat > "$SKILL_DIR/ngrok-config.json" << EOF
+{
+    "email": "$ALLOWED_EMAIL",
+    "configuredAt": "$(date -Iseconds)"
+}
+EOF
+    chmod 600 "$SKILL_DIR/ngrok-config.json"
+    
+    echo ""
+    echo "✅ ngrok configured for: $ALLOWED_EMAIL"
+fi
+
+#######################################
 # CREATE START SCRIPT
 #######################################
 
 echo "🔧 Creating start script..."
 
-cat > $SKILL_DIR/start-tunnel.sh << STARTSCRIPT
+cat > $SKILL_DIR/start-tunnel.sh << 'STARTSCRIPT'
 #!/bin/bash
 # Browser Control - Start all services
 
 set -e
 
 SKILL_DIR=~/.openclaw/skills/browser-control
-CONFIG_FILE=\$SKILL_DIR/config.json
+CONFIG_FILE=$SKILL_DIR/config.json
+NGROK_CONFIG=$SKILL_DIR/ngrok-config.json
 TOOLS_FILE=~/.openclaw/workspace/TOOLS.md
-VNC_PASSWORD=\$(cat \$SKILL_DIR/vnc-password 2>/dev/null || echo "unknown")
-OS="$OS"
-VNC_PORT=$VNC_PORT
-NOVNC_WEB="$NOVNC_WEB"
+VNC_PASSWORD=$(cat $SKILL_DIR/vnc-password 2>/dev/null || echo "")
 
 echo "🖥️  Browser Control - Starting..."
 echo ""
+
+# Check ngrok config
+if [ ! -f "$NGROK_CONFIG" ]; then
+    echo "❌ ngrok not configured. Run install.sh first."
+    exit 1
+fi
+
+ALLOWED_EMAIL=$(jq -r '.email' "$NGROK_CONFIG")
+if [ -z "$ALLOWED_EMAIL" ] || [ "$ALLOWED_EMAIL" = "null" ]; then
+    echo "❌ No email configured. Run install.sh first."
+    exit 1
+fi
+
+#######################################
+# DETECT OS
+#######################################
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    OS="mac"
+    VNC_PORT=5900
+    NOVNC_WEB=$(brew --prefix 2>/dev/null)/share/novnc
+    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/opt/homebrew/share/novnc"
+    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/usr/local/share/novnc"
+else
+    OS="linux"
+    VNC_PORT=5901
+    NOVNC_WEB="/usr/share/novnc"
+fi
 
 #######################################
 # START VNC (Linux only)
 #######################################
 
-if [[ "\$OS" == "linux" ]]; then
-    # Check if VNC is already running
+if [[ "$OS" == "linux" ]]; then
     if pgrep -f "Xtightvnc.*:1" > /dev/null; then
         echo "✅ VNC already running"
     else
@@ -195,8 +294,7 @@ if [[ "\$OS" == "linux" ]]; then
     fi
 fi
 
-if [[ "\$OS" == "mac" ]]; then
-    # Check Screen Sharing
+if [[ "$OS" == "mac" ]]; then
     if ! pgrep -x "screensharingd" > /dev/null; then
         echo "⚠️  Screen Sharing doesn't seem to be running."
         echo "   Enable it in System Preferences → Sharing → Screen Sharing"
@@ -204,10 +302,9 @@ if [[ "\$OS" == "mac" ]]; then
         echo "✅ Screen Sharing is running"
     fi
     
-    # Start Chrome with CDP if not running
     if ! pgrep -f "remote-debugging-port=9222" > /dev/null; then
         echo "🌐 Starting Chrome with remote debugging..."
-        \$SKILL_DIR/start-chrome.sh
+        $SKILL_DIR/start-chrome.sh
         sleep 2
     else
         echo "✅ Chrome already running with remote debugging"
@@ -222,106 +319,118 @@ echo "🌐 Starting noVNC..."
 pkill -f "websockify.*6080" 2>/dev/null || true
 sleep 1
 
-if [ ! -d "\$NOVNC_WEB" ]; then
-    echo "❌ noVNC not found at \$NOVNC_WEB"
+if [ ! -d "$NOVNC_WEB" ]; then
+    echo "❌ noVNC not found at $NOVNC_WEB"
     exit 1
 fi
 
-websockify --web=\$NOVNC_WEB 6080 localhost:\$VNC_PORT &
-WEBSOCKIFY_PID=\$!
+websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
+WEBSOCKIFY_PID=$!
 sleep 2
 
-# Verify websockify started
-if ! kill -0 \$WEBSOCKIFY_PID 2>/dev/null; then
+if ! kill -0 $WEBSOCKIFY_PID 2>/dev/null; then
     echo "❌ Failed to start noVNC"
     exit 1
 fi
 echo "✅ noVNC started on port 6080"
 
 #######################################
-# START CLOUDFLARED TUNNEL
+# START NGROK TUNNEL
 #######################################
 
-echo "🚇 Starting cloudflared tunnel..."
-echo "   (This may take a few seconds)"
+echo "🚇 Starting ngrok tunnel with Google OAuth..."
+echo "   Only $ALLOWED_EMAIL can access"
 echo ""
 
-# Kill any existing cloudflared
-pkill -f "cloudflared.*tunnel" 2>/dev/null || true
+# Kill any existing ngrok
+pkill -f "ngrok.*http" 2>/dev/null || true
 sleep 1
 
-# Start cloudflared in background, log to file
-TUNNEL_LOG=\$SKILL_DIR/tunnel.log
-cloudflared tunnel --url http://localhost:6080 > \$TUNNEL_LOG 2>&1 &
-CLOUDFLARED_PID=\$!
-echo \$CLOUDFLARED_PID > \$SKILL_DIR/cloudflared.pid
+# Start ngrok in background
+ngrok http 6080 \
+    --oauth=google \
+    --oauth-allow-email="$ALLOWED_EMAIL" \
+    --log=stdout \
+    > $SKILL_DIR/ngrok.log 2>&1 &
 
-# Wait for URL (max 30 seconds)
-echo "   Waiting for tunnel URL..."
-URL=""
+NGROK_PID=$!
+echo $NGROK_PID > $SKILL_DIR/ngrok.pid
+
+# Wait for tunnel to be ready
+echo "   Waiting for tunnel..."
 for i in {1..30}; do
     sleep 1
-    URL=\$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' \$TUNNEL_LOG 2>/dev/null | head -1)
-    if [ -n "\$URL" ]; then
+    # Query ngrok API for tunnel URL
+    TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels 2>/dev/null | jq -r '.tunnels[0].public_url' 2>/dev/null)
+    if [ -n "$TUNNEL_URL" ] && [ "$TUNNEL_URL" != "null" ]; then
         break
     fi
     echo -n "."
 done
 echo ""
 
-if [ -z "\$URL" ]; then
-    echo "❌ Failed to get tunnel URL after 30s"
-    echo "   Check log: \$TUNNEL_LOG"
-    cat \$TUNNEL_LOG
+if [ -z "$TUNNEL_URL" ] || [ "$TUNNEL_URL" = "null" ]; then
+    echo "❌ Failed to get tunnel URL"
+    echo "   Check log: $SKILL_DIR/ngrok.log"
+    cat $SKILL_DIR/ngrok.log | tail -20
     exit 1
+fi
+
+# Build noVNC URL with auto-login password
+if [ -n "$VNC_PASSWORD" ] && [ "$VNC_PASSWORD" != "(your Mac password)" ]; then
+    NOVNC_URL="${TUNNEL_URL}/vnc.html?password=${VNC_PASSWORD}&autoconnect=true"
+else
+    NOVNC_URL="${TUNNEL_URL}/vnc.html?autoconnect=true"
 fi
 
 echo ""
 echo "========================================="
 echo "✅ TUNNEL ACTIVE!"
 echo ""
-echo "🔗 Link: \$URL/vnc.html"
-echo "🔑 Password: \$VNC_PASSWORD"
+echo "🔗 Link: $NOVNC_URL"
+echo "🔐 Protected by: Google OAuth ($ALLOWED_EMAIL)"
 echo ""
 echo "Open from your phone or any browser!"
+echo "You'll need to login with your Google account."
 echo "========================================="
 echo ""
 
 # Save to config.json
-cat > \$CONFIG_FILE << CONF
+cat > $CONFIG_FILE << CONF
 {
-    "novncUrl": "\$URL/vnc.html",
-    "tunnelUrl": "\$URL",
-    "vncPassword": "\$VNC_PASSWORD",
+    "novncUrl": "$NOVNC_URL",
+    "tunnelUrl": "$TUNNEL_URL",
+    "allowedEmail": "$ALLOWED_EMAIL",
     "cdpUrl": "http://localhost:9222",
-    "updatedAt": "\$(date -Iseconds)"
+    "updatedAt": "$(date -Iseconds)"
 }
 CONF
 
 # Update TOOLS.md
-if [ -f "\$TOOLS_FILE" ]; then
+if [ -f "$TOOLS_FILE" ]; then
     # Remove old Browser Control section
-    grep -v "## Browser Control" "\$TOOLS_FILE" | grep -v "noVNC URL:" | grep -v "Password:" | grep -v "Send the link" | grep -v "When you need the user" > "\$TOOLS_FILE.tmp" || true
-    mv "\$TOOLS_FILE.tmp" "\$TOOLS_FILE"
+    grep -v "## Browser Control" "$TOOLS_FILE" | grep -v "noVNC URL:" | grep -v "Protected by:" | grep -v "Send the link" | grep -v "When you need the user" | grep -v "Google OAuth" > "$TOOLS_FILE.tmp" || true
+    mv "$TOOLS_FILE.tmp" "$TOOLS_FILE"
 fi
 
-cat >> "\$TOOLS_FILE" << TOOLS
+cat >> "$TOOLS_FILE" << TOOLS
 
 ## Browser Control
 
 When you need the user to login, 2FA, captcha, or any manual verification:
 
-- noVNC URL: \$URL/vnc.html
-- Password: \$VNC_PASSWORD
+- noVNC URL: $NOVNC_URL
+- Protected by: Google OAuth ($ALLOWED_EMAIL)
 
 Send the link and wait for the user to say "done".
+The user will need to login with their Google account.
 TOOLS
 
 echo "📝 TOOLS.md updated"
-echo "📝 Config saved to \$CONFIG_FILE"
+echo "📝 Config saved to $CONFIG_FILE"
 echo ""
-echo "🔄 Tunnel running in background (PID: \$CLOUDFLARED_PID)"
-echo "   Stop with: \$SKILL_DIR/stop-tunnel.sh"
+echo "🔄 Tunnel running in background (PID: $NGROK_PID)"
+echo "   Stop with: $SKILL_DIR/stop-tunnel.sh"
 STARTSCRIPT
 
 chmod +x $SKILL_DIR/start-tunnel.sh
@@ -334,7 +443,7 @@ cat > $SKILL_DIR/stop-tunnel.sh << 'STOPSCRIPT'
 #!/bin/bash
 echo "🛑 Stopping Browser Control services..."
 
-pkill -f cloudflared 2>/dev/null && echo "   ✓ cloudflared stopped" || echo "   - cloudflared not running"
+pkill -f "ngrok.*http" 2>/dev/null && echo "   ✓ ngrok stopped" || echo "   - ngrok not running"
 pkill -f "websockify.*6080" 2>/dev/null && echo "   ✓ noVNC stopped" || echo "   - noVNC not running"
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -380,8 +489,8 @@ else
     NOVNC_STATUS="stopped"
 fi
 
-# Check cloudflared
-if pgrep -f "cloudflared.*tunnel" > /dev/null; then
+# Check ngrok
+if pgrep -f "ngrok.*http" > /dev/null; then
     TUNNEL_STATUS="running"
 else
     TUNNEL_STATUS="stopped"
@@ -389,9 +498,11 @@ fi
 
 # Get URL if available
 if [ -f "$SKILL_DIR/config.json" ]; then
-    URL=$(grep -o '"novncUrl"[^,]*' "$SKILL_DIR/config.json" | cut -d'"' -f4)
+    URL=$(jq -r '.novncUrl' "$SKILL_DIR/config.json" 2>/dev/null)
+    EMAIL=$(jq -r '.allowedEmail' "$SKILL_DIR/config.json" 2>/dev/null)
 else
     URL=""
+    EMAIL=""
 fi
 
 # Output JSON
@@ -401,7 +512,8 @@ cat << EOF
   "novnc": "$NOVNC_STATUS",
   "tunnel": "$TUNNEL_STATUS",
   "ready": $([ "$VNC_STATUS" = "running" ] && [ "$NOVNC_STATUS" = "running" ] && [ "$TUNNEL_STATUS" = "running" ] && echo "true" || echo "false"),
-  "url": "$URL"
+  "url": "$URL",
+  "allowedEmail": "$EMAIL"
 }
 EOF
 STATUSSCRIPT
@@ -419,55 +531,6 @@ if [ -f "$SCRIPT_DIR/SKILL.md" ]; then
 fi
 
 #######################################
-# CREATE SYSTEMD SERVICES (Linux)
-#######################################
-
-if [[ "$OS" == "linux" ]]; then
-    echo "🔧 Creating systemd services..."
-    
-    mkdir -p ~/.config/systemd/user
-    
-    # VNC Service
-    cat > ~/.config/systemd/user/browser-control-vnc.service << VNCSERVICE
-[Unit]
-Description=Browser Control VNC Server
-After=network.target
-
-[Service]
-Type=forking
-ExecStartPre=/usr/bin/vncserver -kill :1 || true
-ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24
-ExecStop=/usr/bin/vncserver -kill :1
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-VNCSERVICE
-
-    # noVNC Service
-    cat > ~/.config/systemd/user/browser-control-novnc.service << NOVNCSERVICE
-[Unit]
-Description=Browser Control noVNC
-After=browser-control-vnc.service
-Requires=browser-control-vnc.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/websockify --web=$NOVNC_WEB 6080 localhost:5901
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-NOVNCSERVICE
-
-    systemctl --user daemon-reload
-    
-    echo "✅ Systemd services created"
-fi
-
-#######################################
 # FINAL OUTPUT
 #######################################
 
@@ -476,8 +539,8 @@ echo "========================================"
 echo "✅ Installation complete!"
 echo "========================================"
 echo ""
-echo "🔑 VNC Password: $VNC_PASSWORD"
-echo "   (saved in $SKILL_DIR/vnc-password)"
+echo "🔐 Protected by: Google OAuth"
+echo "   Only $ALLOWED_EMAIL can access"
 echo ""
 echo "📂 Scripts installed in:"
 echo "   $SKILL_DIR/"
@@ -488,14 +551,9 @@ echo ""
 echo "🛑 TO STOP:"
 echo "   $SKILL_DIR/stop-tunnel.sh"
 echo ""
-
-if [[ "$OS" == "linux" ]]; then
-    echo "🔄 AUTO-START (optional):"
-    echo "   systemctl --user start browser-control-vnc"
-    echo "   systemctl --user start browser-control-novnc"
-    echo "   (Then run start-tunnel.sh for cloudflared)"
-    echo ""
-fi
+echo "📊 TO CHECK STATUS:"
+echo "   $SKILL_DIR/status.sh"
+echo ""
 
 if [[ "$OS" == "mac" ]]; then
     echo "⚠️  Don't forget:"

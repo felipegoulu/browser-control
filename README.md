@@ -1,30 +1,35 @@
 # 🖥️ Browser Control
 
-OpenClaw skill for real browser with remote access.
+OpenClaw skill for real browser with remote access, **protected by Google OAuth**.
 
-Your agent can use a real browser (Chromium) and when it needs login, 2FA, or captchas, it sends you a link to take control — **from your phone or any device**.
+Your agent can use a real browser (Chromium) and when it needs login, 2FA, or captchas, it sends you a link to take control — **from your phone or any device**. Only you can access it (via your Google account).
 
 ## Installation
 
 **Quick install (one-liner):**
 ```bash
-curl -sL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/felipegoulu/browser-control/ngrok-oauth/install.sh | bash
 ```
 
 **Or clone and install:**
 ```bash
-git clone https://github.com/felipegoulu/browser-control.git
+git clone -b ngrok-oauth https://github.com/felipegoulu/browser-control.git
 cd browser-control
 bash install.sh
 ```
 
+The installer will:
+1. Install VNC + noVNC + ngrok
+2. Ask for your ngrok authtoken (free account)
+3. Ask for your Google email (only this email can access)
+4. Configure everything
+
 ## What it does
 
-1. **Installs** VNC + noVNC + cloudflared + Chromium
-2. **Creates a tunnel** so you can access from anywhere
-3. **Auto-generates** a random VNC password
-4. **Updates TOOLS.md** with the link so your agent knows it
-5. **Creates systemd services** for auto-start (Linux)
+1. **Installs** VNC + noVNC + ngrok
+2. **Protects** with Google OAuth (only your email can access)
+3. **Creates a tunnel** so you can access from anywhere
+4. **Auto-connects** to VNC (no password to enter)
 
 ## How it works
 
@@ -40,12 +45,13 @@ You: "Check my Gmail"
          ▼
    Agent sends you:
    "🔐 I need you to log in.
-    Open: https://xxx.trycloudflare.com/vnc.html
-    Password: (from install)
+    Open: https://xxx.ngrok.app/vnc.html
+    Sign in with Google when prompted.
     Let me know when done."
          │
          ▼
    You open the link on your phone 📱
+   You sign in with your Google account
    You see the browser, do the login
          │
          ▼
@@ -55,14 +61,14 @@ You: "Check my Gmail"
    Agent continues and reads your emails
 ```
 
-## Access from anywhere
+## Security
 
-The noVNC link works on:
-- 📱 **Phone** — Chrome, Safari, any mobile browser
-- 💻 **Computer** — Any browser  
-- 📟 **Tablet** — Same link, just open it
+🔐 **Google OAuth Protection**
+- Only YOUR Google account can access
+- No password to remember or leak
+- The agent never needs to share sensitive credentials
 
-No app needed. Just a browser.
+Even if someone gets the link, they can't access without logging in with your Google account.
 
 ## Commands
 
@@ -70,13 +76,13 @@ No app needed. Just a browser.
 # Check status
 ~/.openclaw/skills/browser-control/status.sh
 
-# Start everything (VNC + noVNC + tunnel)
+# Start everything (VNC + noVNC + ngrok tunnel)
 ~/.openclaw/skills/browser-control/start-tunnel.sh
 
 # Stop everything
 ~/.openclaw/skills/browser-control/stop-tunnel.sh
 
-# See current URL and password
+# See current URL and config
 cat ~/.openclaw/skills/browser-control/config.json
 ```
 
@@ -85,10 +91,36 @@ cat ~/.openclaw/skills/browser-control/config.json
 The installer creates a `SKILL.md` that teaches OpenClaw how to:
 1. Check if browser-control is running
 2. Start it if needed
-3. Get the URL and password
+3. Get the URL
 4. Send the link to you when login is required
 
 **You don't need to remember the commands** — OpenClaw reads the skill and handles it.
+
+## Access from anywhere
+
+The link works on:
+- 📱 **Phone** — Chrome, Safari, any mobile browser
+- 💻 **Computer** — Any browser  
+- 📟 **Tablet** — Same link, just open it
+
+No app needed. Just a browser and your Google account.
+
+## After reboot
+
+Nothing starts automatically. Run this to start everything:
+
+```bash
+~/.openclaw/skills/browser-control/start-tunnel.sh
+```
+
+This starts VNC + noVNC + ngrok tunnel, and shows you the URL.
+
+**Check current URL:**
+```bash
+cat ~/.openclaw/skills/browser-control/config.json
+```
+
+> 💡 The tunnel URL changes each time you run `start-tunnel.sh`.
 
 ## Compatibility
 
@@ -106,7 +138,7 @@ The installer creates a `SKILL.md` that teaches OpenClaw how to:
 Your phone/browser
          │
          ▼ (https)
-   cloudflared tunnel (free)
+   ngrok tunnel (Google OAuth)
          │
          ▼
    noVNC web server (:6080)
@@ -119,23 +151,6 @@ Your phone/browser
       └── Chromium ◄── OpenClaw (CDP :9222)
 ```
 
-## After reboot
-
-Nothing starts automatically. Run this to start everything:
-
-```bash
-~/.openclaw/skills/browser-control/start-tunnel.sh
-```
-
-This starts VNC + noVNC + cloudflared tunnel, and shows you the new URL.
-
-**Check current URL and password:**
-```bash
-cat ~/.openclaw/skills/browser-control/config.json
-```
-
-> 💡 The tunnel URL changes each time you run `start-tunnel.sh`.
-
 ## Files created
 
 ```
@@ -144,49 +159,49 @@ cat ~/.openclaw/skills/browser-control/config.json
 ├── start-tunnel.sh      # Start all services + tunnel
 ├── stop-tunnel.sh       # Stop all services
 ├── status.sh            # Check if running (returns JSON)
-├── vnc-password         # Your VNC password
-├── config.json          # Current tunnel URL + password
-└── start-chrome.sh      # (Mac only) Start Chrome with CDP
+├── config.json          # Current tunnel URL
+├── ngrok-config.json    # Your email (for OAuth)
+├── vnc-password         # VNC password (auto-used)
+└── ngrok.log            # ngrok logs
 ```
 
-## Security
+## Reconfigure
 
-⚠️ The tunnel link is public. Anyone with the link + password can see your browser.
+To change your email or ngrok token:
 
-Protections:
-- Random URL (hard to guess)
-- URL changes on restart
-- VNC password required
-- Random password generated on install
-
-For production, consider:
-- Cloudflare Tunnel with custom domain + auth
-- VPN / Tailscale
-- IP allowlist
+```bash
+rm ~/.openclaw/skills/browser-control/ngrok-config.json
+bash install.sh
+```
 
 ## Troubleshooting
 
-**Tunnel won't start:**
+**ngrok won't start:**
 ```bash
-# Check cloudflared
-cloudflared --version
-cloudflared tunnel --url http://localhost:6080
+# Check ngrok is installed
+ngrok --version
+
+# Check auth
+ngrok config check
 ```
+
+**Can't access the link:**
+- Make sure you're logging in with the email you configured
+- Check `cat ~/.openclaw/skills/browser-control/ngrok-config.json`
 
 **noVNC won't connect:**
 ```bash
 # Check VNC is running
-vncserver -list
 pgrep -f Xtightvnc
 
 # Check websockify
 pgrep -f websockify
 ```
 
-**Agent doesn't see the link:**
-```bash
-cat ~/.openclaw/workspace/TOOLS.md | grep -A5 "Browser Control"
-```
+## Requirements
+
+- **ngrok account** (free): https://ngrok.com/signup
+- **Google account**: For OAuth login
 
 ## License
 
