@@ -170,77 +170,58 @@ echo "This protects your browser with Google login."
 echo "Only YOUR Google account can access it."
 echo ""
 
-# Check if already configured
-if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
-    EXISTING_EMAIL=$(jq -r '.email' "$SKILL_DIR/ngrok-config.json" 2>/dev/null)
-    echo "Found existing config: $EXISTING_EMAIL"
-    read -p "Reconfigure? (y/N): " RECONFIG < /dev/tty
-    if [[ ! "$RECONFIG" =~ ^[Yy]$ ]]; then
-        echo "Keeping existing config."
-        SKIP_NGROK_CONFIG=true
-    fi
+# Step 1: ngrok authtoken
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔑 STEP 1: Login to ngrok & copy authtoken"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Open this URL in your browser:"
+echo ""
+echo "   👉 https://dashboard.ngrok.com/get-started/your-authtoken"
+echo ""
+echo "Log in (or sign up free) and copy your authtoken."
+echo ""
+read -p "Paste your authtoken here: " NGROK_TOKEN < /dev/tty
+
+if [ -z "$NGROK_TOKEN" ]; then
+    echo ""
+    echo "❌ Authtoken required."
+    echo "   Go to: https://dashboard.ngrok.com/get-started/your-authtoken"
+    exit 1
 fi
 
-if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
-    
-    # Check if ngrok is already authenticated
-    if [ -f ~/.config/ngrok/ngrok.yml ] && grep -q "authtoken" ~/.config/ngrok/ngrok.yml; then
-        echo "✅ ngrok already authenticated"
-        NGROK_AUTHENTICATED=true
-    fi
-    
-    if [ "$NGROK_AUTHENTICATED" != "true" ]; then
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "🔑 STEP 1: Login to ngrok & copy authtoken"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "Open this URL in your browser:"
-        echo ""
-        echo "   👉 https://dashboard.ngrok.com/get-started/your-authtoken"
-        echo ""
-        echo "Log in (or sign up free) and copy your authtoken."
-        echo ""
-        read -p "Paste your authtoken here: " NGROK_TOKEN < /dev/tty
-        
-        if [ -z "$NGROK_TOKEN" ]; then
-            echo ""
-            echo "❌ Authtoken required."
-            echo "   Go to: https://dashboard.ngrok.com/get-started/your-authtoken"
-            exit 1
-        fi
-        
-        # Let ngrok validate the token
-        ngrok config add-authtoken "$NGROK_TOKEN"
-        echo ""
-        echo "✅ ngrok authenticated!"
-    fi
-    
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔐 STEP 2: Verify your Google account"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-    echo "This verifies your email via Google login."
-    echo "Only this email will be able to access your browser."
-    echo ""
-    
-    # Check for Python
-    PYTHON_CMD=""
-    if command -v python3 &> /dev/null; then
-        PYTHON_CMD="python3"
-    elif command -v python &> /dev/null; then
-        PYTHON_CMD="python"
-    fi
-    
-    if [ -z "$PYTHON_CMD" ]; then
-        echo "❌ Python is required for Google verification."
-        echo "   Install with: sudo apt install python3"
-        exit 1
-    fi
-    
-    # Create and run Google OAuth script
-    GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
-    GOOGLE_AUTH_OUTPUT="/tmp/google-auth-$$.out"
+# Let ngrok validate the token
+ngrok config add-authtoken "$NGROK_TOKEN"
+echo ""
+echo "✅ ngrok authenticated!"
+
+# Step 2: Google verification
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔐 STEP 2: Verify your Google account"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "This verifies your email via Google login."
+echo "Only this email will be able to access your browser."
+echo ""
+
+# Check for Python
+PYTHON_CMD=""
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+fi
+
+if [ -z "$PYTHON_CMD" ]; then
+    echo "❌ Python is required for Google verification."
+    echo "   Install with: sudo apt install python3"
+    exit 1
+fi
+
+# Create and run Google OAuth script
+GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
+GOOGLE_AUTH_OUTPUT="/tmp/google-auth-$$.out"
     cat > "$GOOGLE_AUTH_SCRIPT" << 'PYTHONSCRIPT'
 #!/usr/bin/env python3
 import json, sys, urllib.request
@@ -302,42 +283,41 @@ except Exception as e:
     tty_print(f"❌ Error: {e}")
     sys.exit(1)
 PYTHONSCRIPT
-    AUTH_OUTPUT=$($PYTHON_CMD "$GOOGLE_AUTH_SCRIPT" 2>&1)
-    AUTH_EXIT=$?
-    rm -f "$GOOGLE_AUTH_SCRIPT"
-    
-    if [ $AUTH_EXIT -ne 0 ]; then
-        echo ""
-        echo "❌ Google verification failed. Please try again."
-        exit 1
-    fi
-    
-    # Extract email from output
-    ALLOWED_EMAIL=$(echo "$AUTH_OUTPUT" | grep "^GOOGLE_EMAIL=" | cut -d= -f2)
-    
-    if [ -z "$ALLOWED_EMAIL" ]; then
-        echo "❌ Could not get email. Please try again."
-        exit 1
-    fi
-    
-    # Validate email format
-    if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        echo "❌ Invalid email format."
-        exit 1
-    fi
-    
-    # Save config
-    cat > "$SKILL_DIR/ngrok-config.json" << EOF
+AUTH_OUTPUT=$($PYTHON_CMD "$GOOGLE_AUTH_SCRIPT" 2>&1)
+AUTH_EXIT=$?
+rm -f "$GOOGLE_AUTH_SCRIPT"
+
+if [ $AUTH_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ Google verification failed. Please try again."
+    exit 1
+fi
+
+# Extract email from output
+ALLOWED_EMAIL=$(echo "$AUTH_OUTPUT" | grep "^GOOGLE_EMAIL=" | cut -d= -f2)
+
+if [ -z "$ALLOWED_EMAIL" ]; then
+    echo "❌ Could not get email. Please try again."
+    exit 1
+fi
+
+# Validate email format
+if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+    echo "❌ Invalid email format."
+    exit 1
+fi
+
+# Save config
+cat > "$SKILL_DIR/ngrok-config.json" << EOF
 {
     "email": "$ALLOWED_EMAIL",
     "configuredAt": "$(date -Iseconds)"
 }
 EOF
-    chmod 600 "$SKILL_DIR/ngrok-config.json"
-    
-    echo ""
-    echo "✅ Configured! Only $ALLOWED_EMAIL can access."
-fi
+chmod 600 "$SKILL_DIR/ngrok-config.json"
+
+echo ""
+echo "✅ Configured! Only $ALLOWED_EMAIL can access."
 
 #######################################
 # CREATE START SCRIPT
