@@ -200,36 +200,19 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         echo ""
         echo "Log in (or sign up free) and copy your authtoken."
         echo ""
-        while true; do
-            read -p "Paste your authtoken here: " NGROK_TOKEN
-            
-            if [ -z "$NGROK_TOKEN" ]; then
-                echo ""
-                echo "❌ Authtoken required."
-                echo "   Go to: https://dashboard.ngrok.com/get-started/your-authtoken"
-                exit 1
-            fi
-            
-            # Validate token format (should be like "2abc123_xyz..." - number, alphanumeric, underscore, more alphanumeric)
-            if [[ ! "$NGROK_TOKEN" =~ ^[0-9][a-zA-Z0-9]+_[a-zA-Z0-9]+$ ]]; then
-                echo ""
-                echo "❌ Invalid token format. ngrok tokens look like: 2abc123def_XyZ789..."
-                echo "   Copy the full token from the ngrok dashboard."
-                echo ""
-                continue
-            fi
-            
-            # Try to configure ngrok
-            if ngrok config add-authtoken "$NGROK_TOKEN" 2>/dev/null; then
-                echo ""
-                echo "✅ ngrok authenticated!"
-                break
-            else
-                echo ""
-                echo "❌ Failed to save token. Please try again."
-                echo ""
-            fi
-        done
+        read -p "Paste your authtoken here: " NGROK_TOKEN
+        
+        if [ -z "$NGROK_TOKEN" ]; then
+            echo ""
+            echo "❌ Authtoken required."
+            echo "   Go to: https://dashboard.ngrok.com/get-started/your-authtoken"
+            exit 1
+        fi
+        
+        # Let ngrok validate the token
+        ngrok config add-authtoken "$NGROK_TOKEN"
+        echo ""
+        echo "✅ ngrok authenticated!"
     fi
     
     echo ""
