@@ -28,6 +28,8 @@ Starts VNC + noVNC + cloudflared tunnel. Takes ~30 seconds.
 
 ## Get URL and password
 
+**⚠️ ALWAYS read this file fresh before sending the URL to the user. Never use cached values.**
+
 ```bash
 cat ~/.openclaw/skills/browser-control/config.json
 ```
@@ -42,14 +44,18 @@ Returns:
 }
 ```
 
+The URL changes every time the tunnel restarts. Always read the file, don't trust memory.
+
 ## Workflow
 
 1. Check status with `status.sh`
 2. If not running, start with `start-tunnel.sh`
-3. Read `config.json` for URL and password
+3. **Read `config.json` NOW** (not from memory!) for URL and password
 4. Send user the link and password
 5. Wait for user to say "done"
 6. Continue using browser via CDP (localhost:9222)
+
+**Important:** The tunnel URL changes frequently. Always `cat config.json` right before sending the link.
 
 ## Example message to user
 
