@@ -32,7 +32,7 @@ You: "Check my Gmail"
    Agent sends you:
    "🔐 I need you to log in.
     Open this link: https://xxx.trycloudflare.com/vnc.html
-    Password: pinchme1
+    Password: (shown during install)
     Let me know when you're done."
          │
          ▼

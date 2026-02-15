@@ -1,76 +1,76 @@
 # Browser Control Skill
 
-Este skill te permite usar un browser real (Chromium) y pedir ayuda al usuario cuando necesitás que haga login, 2FA, captchas, etc.
+This skill lets you use a real browser (Chromium) and ask the user for help when you need login, 2FA, captchas, etc.
 
-## Cómo funciona
+## How it works
 
-Tenés un browser real corriendo con acceso remoto via noVNC. Cuando necesitás que el usuario intervenga, le mandás el link y él toma control del browser.
+You have a real browser running with remote access via noVNC. When you need the user to intervene, you send them the link and they take control of the browser.
 
-## Obtener el link
+## Getting the link
 
-**IMPORTANTE:** El link puede cambiar. Siempre leé el link actualizado de `TOOLS.md` o de `~/.openclaw/skills/browser-control/config.json` antes de mandarlo.
+**IMPORTANT:** The link can change. Always read the current link and password from `TOOLS.md` or `~/.openclaw/skills/browser-control/config.json` before sending it.
 
-## Cuándo pedir ayuda
+## When to ask for help
 
-Pedí ayuda cuando detectes:
-- Página de login / "Sign in" / "Log in"
+Ask for help when you detect:
+- Login page / "Sign in" / "Log in"
 - Captcha / "Verify you're human" / reCAPTCHA
 - 2FA / "Verification code" / "Two-factor authentication"
 - "Access denied" / "Unauthorized" / "Session expired"
-- Cualquier verificación que requiera credenciales del usuario
+- Any verification that requires the user's credentials
 
-## Cómo pedir ayuda
+## How to ask for help
 
-Mandá este mensaje (adaptalo al contexto):
+Send this message (adapt to context):
 
 ```
-🔐 Necesito tu ayuda para continuar.
+🔐 I need your help to continue.
 
-Entrá a este link desde tu celu o compu:
-👉 [LINK DE TOOLS.MD]
+Open this link from your phone or computer:
+👉 [LINK FROM TOOLS.MD]
 
-Password: pinchme1
+Password: [PASSWORD FROM TOOLS.MD]
 
-Hacé [login / la verificación / etc.] y cuando termines decime "listo".
+Do [login / verification / etc.] and let me know when you're done.
 ```
 
-## Flujo completo
+## Full flow
 
-1. Intentás hacer algo en el browser (ej: abrir Gmail)
-2. Detectás página de login → mandás el link al usuario
-3. Esperás a que diga "listo" (o variantes: "ya está", "done", "terminé", "listo!")
-4. Verificás que la página cambió (ya no es login)
-5. Continuás con la tarea original
+1. You try to do something in the browser (e.g., open Gmail)
+2. You detect a login page → send the link to the user
+3. Wait for them to say "done" (or variants: "ready", "finished", "listo")
+4. Verify the page changed (no longer login)
+5. Continue with the original task
 
-## Ejemplo
+## Example
 
-**Usuario:** "Fijate mis emails de Gmail"
+**User:** "Check my Gmail"
 
-**Vos:** 
-1. Abrís Gmail en el browser
-2. Ves página de login de Google
+**You:** 
+1. Open Gmail in browser
+2. See Google login page
 
-**Vos respondés:**
-> 🔐 Gmail me pide que inicies sesión.
+**You respond:**
+> 🔐 Gmail is asking you to log in.
 > 
-> Entrá acá: https://xxxx.trycloudflare.com/vnc.html
-> Password: pinchme1
+> Open this: https://xxxx.trycloudflare.com/vnc.html
+> Password: abc123
 > 
-> Logueate con tu cuenta de Google y decime "listo".
+> Log in with your Google account and tell me "done".
 
-**Usuario:** "listo"
+**User:** "done"
 
-**Vos:**
-1. Verificás que estás en la bandeja de entrada
-2. Leés los emails y respondés
+**You:**
+1. Verify you're in the inbox
+2. Read emails and respond
 
-> ✅ Perfecto! Tenés 3 emails nuevos:
-> 1. De Juan: "Reunión mañana"
+> ✅ Done! You have 3 new emails:
+> 1. From John: "Meeting tomorrow"
 > 2. ...
 
-## Notas importantes
+## Important notes
 
-- **No pidas contraseñas.** El usuario las escribe directo en el browser.
-- **No spamees el link.** Si el usuario no responde, esperá.
-- **Verificá después.** Cuando el usuario dice "listo", confirmá que funcionó.
-- **El link puede cambiar.** Siempre leé el link actualizado de TOOLS.md.
+- **Don't ask for passwords.** The user types them directly in the browser.
+- **Don't spam the link.** If the user doesn't respond, wait.
+- **Verify after.** When the user says "done", confirm it worked.
+- **The link can change.** Always read the updated link from TOOLS.md.
