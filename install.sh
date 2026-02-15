@@ -110,20 +110,20 @@ elif [[ "$OS" == "mac" ]]; then
         exit 1
     fi
     
-    brew install websockify ngrok jq || true
+    brew install ngrok jq || true
     
-    # noVNC
-    if ! brew list novnc &>/dev/null; then
-        brew install novnc || true
+    # websockify via pip (not available on Homebrew)
+    if ! command -v websockify &> /dev/null; then
+        echo "📦 Installing websockify via pip..."
+        pip3 install websockify || python3 -m pip install websockify
     fi
     
-    # Find noVNC path
-    NOVNC_WEB="$BREW_PREFIX/share/novnc"
+    # noVNC - download directly (not reliable on Homebrew)
+    NOVNC_WEB="$SKILL_DIR/novnc"
     if [ ! -d "$NOVNC_WEB" ]; then
-        NOVNC_WEB="/opt/homebrew/share/novnc"
-    fi
-    if [ ! -d "$NOVNC_WEB" ]; then
-        NOVNC_WEB="/usr/local/share/novnc"
+        echo "📦 Downloading noVNC..."
+        curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz | tar -xz -C "$SKILL_DIR"
+        mv "$SKILL_DIR/noVNC-1.4.0" "$NOVNC_WEB"
     fi
     
     VNC_PORT=5900
@@ -359,7 +359,9 @@ fi
 if [[ "$OSTYPE" == "darwin"* ]]; then
     OS="mac"
     VNC_PORT=5900
-    NOVNC_WEB=$(brew --prefix 2>/dev/null)/share/novnc
+    NOVNC_WEB="$SKILL_DIR/novnc"
+    # Fallback to Homebrew paths if skill dir doesn't have it
+    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB=$(brew --prefix 2>/dev/null)/share/novnc
     [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/opt/homebrew/share/novnc"
     [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/usr/local/share/novnc"
 else
