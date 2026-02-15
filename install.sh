@@ -184,7 +184,7 @@ fi
 if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     # Check if ngrok is already authenticated
-    if ngrok config check 2>/dev/null | grep -q "authtoken"; then
+    if [ -f ~/.config/ngrok/ngrok.yml ] && grep -q "authtoken" ~/.config/ngrok/ngrok.yml; then
         echo "✅ ngrok already authenticated"
         NGROK_AUTHENTICATED=true
     fi
