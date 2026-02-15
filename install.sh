@@ -1,6 +1,7 @@
 #!/bin/bash
 # Browser Control Skill - Installer
 # Installs VNC + noVNC + ngrok with Google OAuth
+# Linux only (Ubuntu/Debian)
 
 set -e
 
@@ -9,32 +10,26 @@ echo "================================"
 echo ""
 
 #######################################
-# DETECT OS AND ARCHITECTURE
+# CHECK OS
 #######################################
 
-OS="unknown"
-ARCH=$(uname -m)
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    OS="mac"
-    BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "/usr/local")
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    OS="linux"
-    # Normalize architecture names
-    case "$ARCH" in
-        x86_64) ARCH="amd64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-        armv7l) ARCH="arm" ;;
-    esac
-else
-    echo "❌ Unsupported OS: $OSTYPE"
+if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+    echo "❌ This skill only supports Linux (Ubuntu/Debian)"
     echo ""
-    echo "Supported: Linux (Ubuntu/Debian), macOS"
+    echo "Your OS: $OSTYPE"
+    echo ""
     echo "For Windows, use WSL: https://docs.microsoft.com/en-us/windows/wsl/install"
     exit 1
 fi
 
-echo "📍 OS: $OS | Arch: $ARCH"
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) ARCH="amd64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    armv7l) ARCH="arm" ;;
+esac
+
+echo "📍 OS: Linux | Arch: $ARCH"
 echo ""
 
 #######################################
@@ -54,36 +49,38 @@ echo "$VNC_PASSWORD" > $SKILL_DIR/vnc-password
 chmod 600 $SKILL_DIR/vnc-password
 
 #######################################
-# LINUX INSTALLATION
+# INSTALL DEPENDENCIES
 #######################################
 
-if [[ "$OS" == "linux" ]]; then
-    echo "📦 Installing dependencies (Linux)..."
-    
+echo "📦 Installing dependencies..."
+
+sudo apt-get update
+sudo apt-get install -y tightvncserver xfce4 xfce4-terminal xterm novnc websockify curl jq python3
+
+# Chromium
+echo "📦 Installing Chromium..."
+sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+
+# ngrok
+if ! command -v ngrok &> /dev/null; then
+    echo "📦 Installing ngrok ($ARCH)..."
+    curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
     sudo apt-get update
-    sudo apt-get install -y tightvncserver xfce4 xfce4-terminal xterm novnc websockify curl jq
-    
-    # Chromium
-    echo "📦 Installing Chromium..."
-    sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
-    
-    # ngrok
-    if ! command -v ngrok &> /dev/null; then
-        echo "📦 Installing ngrok ($ARCH)..."
-        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt-get update
-        sudo apt-get install -y ngrok
-    fi
-    
-    # Configure VNC
-    echo "🔧 Configuring VNC..."
-    mkdir -p ~/.vnc
-    echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd
-    chmod 600 ~/.vnc/passwd
-    
-    # VNC startup script
-    cat > ~/.vnc/xstartup << 'XSTARTUP'
+    sudo apt-get install -y ngrok
+fi
+
+#######################################
+# CONFIGURE VNC
+#######################################
+
+echo "🔧 Configuring VNC..."
+mkdir -p ~/.vnc
+echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd
+chmod 600 ~/.vnc/passwd
+
+# VNC startup script
+cat > ~/.vnc/xstartup << 'XSTARTUP'
 #!/bin/bash
 xrdb $HOME/.Xresources 2>/dev/null
 startxfce4 &
@@ -91,71 +88,7 @@ sleep 3
 # Start Chromium with remote debugging
 chromium-browser --no-sandbox --disable-gpu --remote-debugging-port=9222 2>/dev/null &
 XSTARTUP
-    chmod +x ~/.vnc/xstartup
-    
-    NOVNC_WEB="/usr/share/novnc"
-    VNC_PORT=5901
-
-#######################################
-# MAC INSTALLATION
-#######################################
-
-elif [[ "$OS" == "mac" ]]; then
-    echo "📦 Installing dependencies (Mac)..."
-    
-    # Check for Homebrew
-    if ! command -v brew &> /dev/null; then
-        echo "❌ Homebrew not found. Install it first:"
-        echo '   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-        exit 1
-    fi
-    
-    brew install ngrok jq || true
-    
-    # websockify via pip (not available on Homebrew)
-    if ! command -v websockify &> /dev/null; then
-        echo "📦 Installing websockify via pip..."
-        pip3 install websockify || python3 -m pip install websockify
-    fi
-    
-    # noVNC - download directly (not reliable on Homebrew)
-    NOVNC_WEB="$SKILL_DIR/novnc"
-    if [ ! -d "$NOVNC_WEB" ]; then
-        echo "📦 Downloading noVNC..."
-        curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz | tar -xz -C "$SKILL_DIR"
-        mv "$SKILL_DIR/noVNC-1.4.0" "$NOVNC_WEB"
-    fi
-    
-    VNC_PORT=5900
-    
-    # On Mac, use system password
-    echo "(your Mac password)" > $SKILL_DIR/vnc-password
-    
-    echo ""
-    echo "⚠️  IMPORTANT: Enable Screen Sharing"
-    echo "   System Preferences → Sharing → Screen Sharing ✅"
-    echo "   Your Mac login password will be the VNC password."
-    echo ""
-    
-    # Create Chrome launcher script for Mac
-    cat > $SKILL_DIR/start-chrome.sh << 'CHROME'
-#!/bin/bash
-# Start Chrome with remote debugging on Mac
-CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-CHROMIUM_PATH="/Applications/Chromium.app/Contents/MacOS/Chromium"
-
-if [ -f "$CHROME_PATH" ]; then
-    "$CHROME_PATH" --remote-debugging-port=9222 &
-elif [ -f "$CHROMIUM_PATH" ]; then
-    "$CHROMIUM_PATH" --remote-debugging-port=9222 &
-else
-    echo "❌ Chrome/Chromium not found. Please install Google Chrome."
-    exit 1
-fi
-echo "✅ Chrome started with remote debugging on port 9222"
-CHROME
-    chmod +x $SKILL_DIR/start-chrome.sh
-fi
+chmod +x ~/.vnc/xstartup
 
 #######################################
 # NGROK SETUP
@@ -221,8 +154,7 @@ fi
 
 # Create and run Google OAuth script
 GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
-GOOGLE_AUTH_OUTPUT="/tmp/google-auth-$$.out"
-    cat > "$GOOGLE_AUTH_SCRIPT" << 'PYTHONSCRIPT'
+cat > "$GOOGLE_AUTH_SCRIPT" << 'PYTHONSCRIPT'
 #!/usr/bin/env python3
 import json, sys, urllib.request
 VERIFY_URL = "https://browser-control-auth.vercel.app"
@@ -352,55 +284,21 @@ if [ -z "$ALLOWED_EMAIL" ] || [ "$ALLOWED_EMAIL" = "null" ]; then
     exit 1
 fi
 
+VNC_PORT=5901
+NOVNC_WEB="/usr/share/novnc"
+
 #######################################
-# DETECT OS
+# START VNC
 #######################################
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    OS="mac"
-    VNC_PORT=5900
-    NOVNC_WEB="$SKILL_DIR/novnc"
-    # Fallback to Homebrew paths if skill dir doesn't have it
-    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB=$(brew --prefix 2>/dev/null)/share/novnc
-    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/opt/homebrew/share/novnc"
-    [ ! -d "$NOVNC_WEB" ] && NOVNC_WEB="/usr/local/share/novnc"
+if pgrep -f "Xtightvnc.*:1" > /dev/null; then
+    echo "✅ VNC already running"
 else
-    OS="linux"
-    VNC_PORT=5901
-    NOVNC_WEB="/usr/share/novnc"
-fi
-
-#######################################
-# START VNC (Linux only)
-#######################################
-
-if [[ "$OS" == "linux" ]]; then
-    if pgrep -f "Xtightvnc.*:1" > /dev/null; then
-        echo "✅ VNC already running"
-    else
-        echo "🖥️  Starting VNC server..."
-        vncserver -kill :1 2>/dev/null || true
-        vncserver :1 -geometry 1280x800 -depth 24
-        sleep 2
-        echo "✅ VNC started on display :1"
-    fi
-fi
-
-if [[ "$OS" == "mac" ]]; then
-    if ! pgrep -x "screensharingd" > /dev/null; then
-        echo "⚠️  Screen Sharing doesn't seem to be running."
-        echo "   Enable it in System Preferences → Sharing → Screen Sharing"
-    else
-        echo "✅ Screen Sharing is running"
-    fi
-    
-    if ! pgrep -f "remote-debugging-port=9222" > /dev/null; then
-        echo "🌐 Starting Chrome with remote debugging..."
-        $SKILL_DIR/start-chrome.sh
-        sleep 2
-    else
-        echo "✅ Chrome already running with remote debugging"
-    fi
+    echo "🖥️  Starting VNC server..."
+    vncserver -kill :1 2>/dev/null || true
+    vncserver :1 -geometry 1280x800 -depth 24
+    sleep 2
+    echo "✅ VNC started on display :1"
 fi
 
 #######################################
@@ -416,12 +314,7 @@ if [ ! -d "$NOVNC_WEB" ]; then
     exit 1
 fi
 
-# Try websockify command, fallback to python module
-if command -v websockify &> /dev/null; then
-    websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
-else
-    python3 -m websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
-fi
+websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
 WEBSOCKIFY_PID=$!
 sleep 2
 
@@ -474,7 +367,7 @@ if [ -z "$TUNNEL_URL" ] || [ "$TUNNEL_URL" = "null" ]; then
 fi
 
 # Build noVNC URL with auto-login password
-if [ -n "$VNC_PASSWORD" ] && [ "$VNC_PASSWORD" != "(your Mac password)" ]; then
+if [ -n "$VNC_PASSWORD" ]; then
     NOVNC_URL="${TUNNEL_URL}/vnc.html?password=${VNC_PASSWORD}&autoconnect=true"
 else
     NOVNC_URL="${TUNNEL_URL}/vnc.html?autoconnect=true"
@@ -542,10 +435,7 @@ echo "🛑 Stopping Browser Control services..."
 
 pkill -f "ngrok.*http" 2>/dev/null && echo "   ✓ ngrok stopped" || echo "   - ngrok not running"
 pkill -f "websockify.*6080" 2>/dev/null && echo "   ✓ noVNC stopped" || echo "   - noVNC not running"
-
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    vncserver -kill :1 2>/dev/null && echo "   ✓ VNC stopped" || echo "   - VNC not running"
-fi
+vncserver -kill :1 2>/dev/null && echo "   ✓ VNC stopped" || echo "   - VNC not running"
 
 echo ""
 echo "✅ All services stopped"
@@ -563,20 +453,11 @@ cat > $SKILL_DIR/status.sh << 'STATUSSCRIPT'
 
 SKILL_DIR=~/.openclaw/skills/browser-control
 
-# Check VNC (Linux only)
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    if pgrep -f "Xtightvnc.*:1" > /dev/null; then
-        VNC_STATUS="running"
-    else
-        VNC_STATUS="stopped"
-    fi
+# Check VNC
+if pgrep -f "Xtightvnc.*:1" > /dev/null; then
+    VNC_STATUS="running"
 else
-    # Mac uses Screen Sharing
-    if pgrep -x "screensharingd" > /dev/null; then
-        VNC_STATUS="running"
-    else
-        VNC_STATUS="stopped"
-    fi
+    VNC_STATUS="stopped"
 fi
 
 # Check noVNC
@@ -651,10 +532,3 @@ echo ""
 echo "📊 TO CHECK STATUS:"
 echo "   $SKILL_DIR/status.sh"
 echo ""
-
-if [[ "$OS" == "mac" ]]; then
-    echo "⚠️  Don't forget:"
-    echo "   1. Enable Screen Sharing in System Preferences"
-    echo "   2. Your VNC password = your Mac login password"
-    echo ""
-fi

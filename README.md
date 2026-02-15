@@ -151,7 +151,7 @@ cat ~/.openclaw/skills/browser-control/config.json
 | OS | Status |
 |----|--------|
 | Ubuntu/Debian (amd64, arm64) | ✅ |
-| macOS (Intel & Apple Silicon) | ✅ |
+| macOS | ❌ Not supported |
 | Windows | Use WSL |
 
 ---
