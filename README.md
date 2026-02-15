@@ -14,10 +14,11 @@ curl -sL https://raw.githubusercontent.com/felipegoulu/browser-control/main/inst
 
 1. **Installs** VNC + noVNC + cloudflared + Chromium
 2. **Creates a tunnel** so you can access from anywhere
-3. **Configures auto-start** so it runs on boot
+3. **Auto-generates** a random VNC password
 4. **Updates TOOLS.md** with the link so your agent knows it
+5. **Creates systemd services** for auto-start (Linux)
 
-## Flow
+## How it works
 
 ```
 You: "Check my Gmail"
@@ -31,13 +32,13 @@ You: "Check my Gmail"
          ▼
    Agent sends you:
    "🔐 I need you to log in.
-    Open this link: https://xxx.trycloudflare.com/vnc.html
-    Password: (shown during install)
-    Let me know when you're done."
+    Open: https://xxx.trycloudflare.com/vnc.html
+    Password: (from install)
+    Let me know when done."
          │
          ▼
-   You open the link on your phone (Chrome, Safari, any browser)
-   You see the desktop and do the login
+   You open the link on your phone 📱
+   You see the browser, do the login
          │
          ▼
    You: "done"
@@ -50,68 +51,123 @@ You: "Check my Gmail"
 
 The noVNC link works on:
 - 📱 **Phone** — Chrome, Safari, any mobile browser
-- 💻 **Computer** — Any browser
+- 💻 **Computer** — Any browser  
 - 📟 **Tablet** — Same link, just open it
 
 No app needed. Just a browser.
 
+## Commands
+
+```bash
+# Start everything (VNC + noVNC + tunnel)
+~/.openclaw/skills/browser-control/start-tunnel.sh
+
+# Stop everything
+~/.openclaw/skills/browser-control/stop-tunnel.sh
+
+# See current URL and password
+cat ~/.openclaw/skills/browser-control/config.json
+```
+
 ## Compatibility
 
-| OS | Status |
-|----|--------|
-| Linux (Ubuntu/Debian) | ✅ |
-| macOS | ✅ |
-| Windows | ❌ (use WSL) |
+| OS | Arch | Status |
+|----|------|--------|
+| Linux (Ubuntu/Debian) | amd64 | ✅ |
+| Linux (Ubuntu/Debian) | arm64 | ✅ |
+| macOS | Apple Silicon | ✅ |
+| macOS | Intel | ✅ |
+| Windows | - | ❌ (use WSL) |
 
 ## Architecture
 
 ```
-Internet
-    │
-    ▼
-cloudflared (free tunnel)
-    │
-    ▼
-noVNC (web server)
-    │
-    ▼
-VNC Server
-    │
-    ▼
-Desktop + Chromium ◄── OpenClaw (CDP)
+Your phone/browser
+         │
+         ▼ (https)
+   cloudflared tunnel (free)
+         │
+         ▼
+   noVNC web server (:6080)
+         │
+         ▼
+   VNC server (:5901)
+         │
+         ▼
+   Desktop (xfce4)
+      └── Chromium ◄── OpenClaw (CDP :9222)
 ```
 
-## Files
+## Auto-start (Linux)
 
-```
-browser-control/
-├── install.sh          # Main installer
-├── SKILL.md            # Instructions for the agent
-├── README.md           # This file
-├── config.example.yaml # Config example
-└── services/           # Systemd units for auto-start
-```
-
-## Commands
+The installer creates systemd user services:
 
 ```bash
-# Start (if not auto-starting)
+# Enable auto-start on login
+systemctl --user enable browser-control-vnc
+systemctl --user enable browser-control-novnc
+
+# Start now
+systemctl --user start browser-control-vnc
+systemctl --user start browser-control-novnc
+
+# Then run tunnel (or create your own service for it)
 ~/.openclaw/skills/browser-control/start-tunnel.sh
+```
 
-# Stop
-~/.openclaw/skills/browser-control/stop-tunnel.sh
+## Files created
 
-# See current URL
-cat ~/.openclaw/skills/browser-control/config.json
+```
+~/.openclaw/skills/browser-control/
+├── start-tunnel.sh      # Start all services + tunnel
+├── stop-tunnel.sh       # Stop all services
+├── vnc-password         # Your VNC password
+├── config.json          # Current tunnel URL
+└── start-chrome.sh      # (Mac only) Start Chrome with CDP
+
+~/.config/systemd/user/  # (Linux only)
+├── browser-control-vnc.service
+└── browser-control-novnc.service
 ```
 
 ## Security
 
-⚠️ The link is public. Anyone with the link + password can see your browser.
+⚠️ The tunnel link is public. Anyone with the link + password can see your browser.
 
-- The URL is random and hard to guess
-- It changes every time the tunnel restarts
-- The VNC password adds a layer of protection
+Protections:
+- Random URL (hard to guess)
+- URL changes on restart
+- VNC password required
+- Random password generated on install
+
+For production, consider:
+- Cloudflare Tunnel with custom domain + auth
+- VPN / Tailscale
+- IP allowlist
+
+## Troubleshooting
+
+**Tunnel won't start:**
+```bash
+# Check cloudflared
+cloudflared --version
+cloudflared tunnel --url http://localhost:6080
+```
+
+**noVNC won't connect:**
+```bash
+# Check VNC is running
+vncserver -list
+pgrep -f Xtightvnc
+
+# Check websockify
+pgrep -f websockify
+```
+
+**Agent doesn't see the link:**
+```bash
+cat ~/.openclaw/workspace/TOOLS.md | grep -A5 "Browser Control"
+```
 
 ## License
 
