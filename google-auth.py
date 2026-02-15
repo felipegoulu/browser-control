@@ -17,7 +17,7 @@ from pathlib import Path
 
 # OAuth configuration
 # Using a public OAuth client for CLI apps (no secret needed)
-CLIENT_ID = "648145737262-9e5r8r1v1cak5gs8cqvm3h8vj7m33e6m.apps.googleusercontent.com"
+CLIENT_ID = "929025941742-kd8he80abnf5grm1587snsvo0aq4ugu3.apps.googleusercontent.com"
 REDIRECT_PORT = 8585
 REDIRECT_URI = f"http://localhost:{REDIRECT_PORT}/callback"
 SCOPES = "openid email"
