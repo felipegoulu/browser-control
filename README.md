@@ -12,11 +12,50 @@ When your agent needs you to login, solve a captcha, or do 2FA, it sends you a l
 curl -fsSL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh | bash
 ```
 
-The installer asks for:
-1. **ngrok authtoken** — Get one free at [ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
-2. **Google verification** — Login with Google to set who can access
+### What you'll see:
 
-That's it. Takes ~2 minutes.
+**Step 1: ngrok authtoken**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔑 STEP 1: Login to ngrok & copy authtoken
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open this URL in your browser:
+
+   👉 https://dashboard.ngrok.com/get-started/your-authtoken
+
+Log in (or sign up free) and copy your authtoken.
+
+Paste your authtoken here: ▌
+```
+
+**Step 2: Google verification**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔐 STEP 2: Verify your Google account
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Open this link in your browser:
+
+   👉 https://browser-control-auth.vercel.app/verify
+
+2. Sign in with Google
+3. Copy the 6-character code
+
+Enter code: ▌
+```
+
+**Done!**
+```
+✅ Verified: you@gmail.com
+✅ Configured! Only you@gmail.com can access.
+
+========================================
+✅ Installation complete!
+========================================
+```
+
+Takes ~2 minutes.
 
 ---
 
