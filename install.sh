@@ -240,35 +240,44 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     # Create and run Google OAuth script
     GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
+    GOOGLE_AUTH_OUTPUT="/tmp/google-auth-$$.out"
     cat > "$GOOGLE_AUTH_SCRIPT" << 'PYTHONSCRIPT'
 #!/usr/bin/env python3
-import json, os, sys, urllib.request
+import json, sys, urllib.request
 VERIFY_URL = "https://browser-control-auth.vercel.app"
 
+# Use /dev/tty for interactive I/O
+try:
+    tty = open('/dev/tty', 'w')
+except:
+    tty = sys.stdout
+
+def tty_print(msg=""):
+    tty.write(msg + "\n")
+    tty.flush()
+
 def read_input(prompt):
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    if not sys.stdin.isatty():
-        try:
-            with open('/dev/tty', 'r') as tty:
-                return tty.readline().strip()
-        except:
-            return input()
-    return input().strip()
+    tty.write(prompt)
+    tty.flush()
+    try:
+        with open('/dev/tty', 'r') as tty_in:
+            return tty_in.readline().strip()
+    except:
+        return input().strip()
 
-print("")
-print("1. Open this link in your browser:")
-print("")
-print(f"   👉 {VERIFY_URL}/verify")
-print("")
-print("2. Sign in with Google")
-print("3. Copy the 6-character code")
-print("")
+tty_print("")
+tty_print("1. Open this link in your browser:")
+tty_print("")
+tty_print(f"   👉 {VERIFY_URL}/verify")
+tty_print("")
+tty_print("2. Sign in with Google")
+tty_print("3. Copy the 6-character code")
+tty_print("")
 
-code = read_input("Enter code: ").strip().upper()
+code = read_input("Enter code: ").upper()
 
 if len(code) != 6:
-    print("❌ Invalid code (should be 6 characters)")
+    tty_print("❌ Invalid code (should be 6 characters)")
     sys.exit(1)
 
 try:
@@ -278,25 +287,24 @@ try:
     with urllib.request.urlopen(req, timeout=30) as response:
         data = json.loads(response.read().decode())
         if "email" not in data:
-            print(f"❌ Invalid response: {data}")
+            tty_print(f"❌ Invalid response: {data}")
             sys.exit(1)
         email = data["email"]
-        print("")
-        print(f"✅ Verified: {email}")
-        print("")
+        tty_print("")
+        tty_print(f"✅ Verified: {email}")
+        tty_print("")
+        # Output email to stdout for capture
         print(f"GOOGLE_EMAIL={email}")
 except urllib.error.HTTPError as e:
-    print("❌ Invalid or expired code" if e.code == 404 else f"❌ Error: {e.code} {e.reason}")
+    tty_print("❌ Invalid or expired code" if e.code == 404 else f"❌ Error: {e.code} {e.reason}")
     sys.exit(1)
 except Exception as e:
-    print(f"❌ Error: {e}")
+    tty_print(f"❌ Error: {e}")
     sys.exit(1)
 PYTHONSCRIPT
     AUTH_OUTPUT=$($PYTHON_CMD "$GOOGLE_AUTH_SCRIPT" 2>&1)
     AUTH_EXIT=$?
     rm -f "$GOOGLE_AUTH_SCRIPT"
-    
-    echo "$AUTH_OUTPUT"
     
     if [ $AUTH_EXIT -ne 0 ]; then
         echo ""
