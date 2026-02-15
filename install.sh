@@ -170,20 +170,6 @@ echo "This protects your browser with Google login."
 echo "Only YOUR Google account can access it."
 echo ""
 
-# Function to open URL in browser
-open_url() {
-    local url="$1"
-    echo ""
-    echo "👉 $url"
-    echo ""
-    if [[ "$OS" == "mac" ]]; then
-        open "$url" 2>/dev/null || true
-    else
-        # Linux - try various openers, but always show URL
-        xdg-open "$url" 2>/dev/null || sensible-browser "$url" 2>/dev/null || x-www-browser "$url" 2>/dev/null || true
-    fi
-}
-
 # Check if already configured
 if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
     EXISTING_EMAIL=$(jq -r '.email' "$SKILL_DIR/ngrok-config.json" 2>/dev/null)
@@ -208,11 +194,11 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         echo "🔑 STEP 1: Login to ngrok & copy authtoken"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        echo "Opening ngrok dashboard..."
-        sleep 1
-        open_url "https://dashboard.ngrok.com/get-started/your-authtoken"
+        echo "Open this URL in your browser:"
         echo ""
-        echo "👆 Log in (or sign up free) and copy your authtoken"
+        echo "   👉 https://dashboard.ngrok.com/get-started/your-authtoken"
+        echo ""
+        echo "Log in (or sign up free) and copy your authtoken."
         echo ""
         while true; do
             read -p "Paste your authtoken here: " NGROK_TOKEN
