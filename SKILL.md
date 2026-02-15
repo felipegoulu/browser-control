@@ -95,6 +95,12 @@ Let me know when you're done!
 ~/.openclaw/skills/browser-control/stop-tunnel.sh
 ```
 
+## After server reboot
+
+**The tunnel does NOT auto-start on reboot.** You must run `start-tunnel.sh` again.
+
+Always check `status.sh` first before assuming the tunnel is running.
+
 ## Files
 
 ```
