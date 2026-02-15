@@ -106,22 +106,25 @@ Your phone/browser
       └── Chromium ◄── OpenClaw (CDP :9222)
 ```
 
-## Auto-start (Linux)
+## After reboot (Linux)
 
-The installer creates systemd user services:
+**What starts automatically:**
+- ✅ VNC server
+- ✅ noVNC web server
+
+**What you need to start manually:**
+- ❌ cloudflared tunnel
 
 ```bash
-# Enable auto-start on login
-systemctl --user enable browser-control-vnc
-systemctl --user enable browser-control-novnc
-
-# Start now
-systemctl --user start browser-control-vnc
-systemctl --user start browser-control-novnc
-
-# Then run tunnel (or create your own service for it)
+# After reboot, just run:
 ~/.openclaw/skills/browser-control/start-tunnel.sh
+
+# The URL changes each time. Check it with:
+cat ~/.openclaw/skills/browser-control/config.json
 ```
+
+> 💡 VNC and noVNC auto-start because the installer enables systemd services.
+> The tunnel isn't auto-started because the URL changes and you need to see it.
 
 ## Files created
 
