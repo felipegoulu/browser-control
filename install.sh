@@ -246,28 +246,49 @@ echo "🚇 Starting cloudflared tunnel..."
 echo "   (This may take a few seconds)"
 echo ""
 
-cloudflared tunnel --url http://localhost:6080 2>&1 | while read line; do
-    # Show cloudflared output
-    echo "\$line"
-    
-    # Capture the tunnel URL
-    if [[ \$line == *"trycloudflare.com"* ]]; then
-        URL=\$(echo \$line | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com')
-        
-        if [ -n "\$URL" ]; then
-            echo ""
-            echo "========================================="
-            echo "✅ TUNNEL ACTIVE!"
-            echo ""
-            echo "🔗 Link: \$URL/vnc.html"
-            echo "🔑 Password: \$VNC_PASSWORD"
-            echo ""
-            echo "Open from your phone or any browser!"
-            echo "========================================="
-            echo ""
-            
-            # Save to config.json
-            cat > \$CONFIG_FILE << CONF
+# Kill any existing cloudflared
+pkill -f "cloudflared.*tunnel" 2>/dev/null || true
+sleep 1
+
+# Start cloudflared in background, log to file
+TUNNEL_LOG=\$SKILL_DIR/tunnel.log
+cloudflared tunnel --url http://localhost:6080 > \$TUNNEL_LOG 2>&1 &
+CLOUDFLARED_PID=\$!
+echo \$CLOUDFLARED_PID > \$SKILL_DIR/cloudflared.pid
+
+# Wait for URL (max 30 seconds)
+echo "   Waiting for tunnel URL..."
+URL=""
+for i in {1..30}; do
+    sleep 1
+    URL=\$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' \$TUNNEL_LOG 2>/dev/null | head -1)
+    if [ -n "\$URL" ]; then
+        break
+    fi
+    echo -n "."
+done
+echo ""
+
+if [ -z "\$URL" ]; then
+    echo "❌ Failed to get tunnel URL after 30s"
+    echo "   Check log: \$TUNNEL_LOG"
+    cat \$TUNNEL_LOG
+    exit 1
+fi
+
+echo ""
+echo "========================================="
+echo "✅ TUNNEL ACTIVE!"
+echo ""
+echo "🔗 Link: \$URL/vnc.html"
+echo "🔑 Password: \$VNC_PASSWORD"
+echo ""
+echo "Open from your phone or any browser!"
+echo "========================================="
+echo ""
+
+# Save to config.json
+cat > \$CONFIG_FILE << CONF
 {
     "novncUrl": "\$URL/vnc.html",
     "tunnelUrl": "\$URL",
@@ -276,15 +297,15 @@ cloudflared tunnel --url http://localhost:6080 2>&1 | while read line; do
     "updatedAt": "\$(date -Iseconds)"
 }
 CONF
-            
-            # Update TOOLS.md
-            if [ -f "\$TOOLS_FILE" ]; then
-                # Remove old Browser Control section and add new one
-                grep -v "## Browser Control" "\$TOOLS_FILE" | grep -v "noVNC URL:" | grep -v "Password:" | grep -v "Send the link" | grep -v "When you need the user" > "\$TOOLS_FILE.tmp" || true
-                mv "\$TOOLS_FILE.tmp" "\$TOOLS_FILE"
-            fi
-            
-            cat >> "\$TOOLS_FILE" << TOOLS
+
+# Update TOOLS.md
+if [ -f "\$TOOLS_FILE" ]; then
+    # Remove old Browser Control section
+    grep -v "## Browser Control" "\$TOOLS_FILE" | grep -v "noVNC URL:" | grep -v "Password:" | grep -v "Send the link" | grep -v "When you need the user" > "\$TOOLS_FILE.tmp" || true
+    mv "\$TOOLS_FILE.tmp" "\$TOOLS_FILE"
+fi
+
+cat >> "\$TOOLS_FILE" << TOOLS
 
 ## Browser Control
 
@@ -295,10 +316,12 @@ When you need the user to login, 2FA, captcha, or any manual verification:
 
 Send the link and wait for the user to say "done".
 TOOLS
-            echo "📝 TOOLS.md updated"
-        fi
-    fi
-done
+
+echo "📝 TOOLS.md updated"
+echo "📝 Config saved to \$CONFIG_FILE"
+echo ""
+echo "🔄 Tunnel running in background (PID: \$CLOUDFLARED_PID)"
+echo "   Stop with: \$SKILL_DIR/stop-tunnel.sh"
 STARTSCRIPT
 
 chmod +x $SKILL_DIR/start-tunnel.sh
