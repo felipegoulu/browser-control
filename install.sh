@@ -238,10 +238,12 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         exit 1
     fi
     
-    # Run Google OAuth script (works on both desktop and headless via ngrok)
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    AUTH_OUTPUT=$($PYTHON_CMD "$SCRIPT_DIR/google-auth.py" 2>&1)
+    # Download and run Google OAuth script
+    GOOGLE_AUTH_SCRIPT="/tmp/google-auth-$$.py"
+    curl -fsSL "https://raw.githubusercontent.com/felipegoulu/browser-control/ngrok-oauth/google-auth.py" -o "$GOOGLE_AUTH_SCRIPT"
+    AUTH_OUTPUT=$($PYTHON_CMD "$GOOGLE_AUTH_SCRIPT" 2>&1)
     AUTH_EXIT=$?
+    rm -f "$GOOGLE_AUTH_SCRIPT"
     
     echo "$AUTH_OUTPUT"
     
