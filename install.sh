@@ -416,7 +416,12 @@ if [ ! -d "$NOVNC_WEB" ]; then
     exit 1
 fi
 
-websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
+# Try websockify command, fallback to python module
+if command -v websockify &> /dev/null; then
+    websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
+else
+    python3 -m websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
+fi
 WEBSOCKIFY_PID=$!
 sleep 2
 
