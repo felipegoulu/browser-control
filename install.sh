@@ -174,7 +174,7 @@ echo ""
 if [ -f "$SKILL_DIR/ngrok-config.json" ]; then
     EXISTING_EMAIL=$(jq -r '.email' "$SKILL_DIR/ngrok-config.json" 2>/dev/null)
     echo "Found existing config: $EXISTING_EMAIL"
-    read -p "Reconfigure? (y/N): " RECONFIG
+    read -p "Reconfigure? (y/N): " RECONFIG < /dev/tty
     if [[ ! "$RECONFIG" =~ ^[Yy]$ ]]; then
         echo "Keeping existing config."
         SKIP_NGROK_CONFIG=true
@@ -200,7 +200,7 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
         echo ""
         echo "Log in (or sign up free) and copy your authtoken."
         echo ""
-        read -p "Paste your authtoken here: " NGROK_TOKEN
+        read -p "Paste your authtoken here: " NGROK_TOKEN < /dev/tty
         
         if [ -z "$NGROK_TOKEN" ]; then
             echo ""

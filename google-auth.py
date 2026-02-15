@@ -6,11 +6,26 @@ which generates a 6-char code the user pastes here.
 """
 
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
 
 VERIFY_URL = "https://browser-control-auth.vercel.app"
+
+def read_input(prompt):
+    """Read input from terminal, even when stdin is piped."""
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    
+    # If stdin is not a tty (e.g., piped), read from /dev/tty
+    if not sys.stdin.isatty():
+        try:
+            with open('/dev/tty', 'r') as tty:
+                return tty.readline().strip()
+        except:
+            return input()  # Fallback
+    return input().strip()
 
 def main():
     print("")
@@ -26,7 +41,7 @@ def main():
     print("3. Copy the 6-character code")
     print("")
     
-    code = input("Enter code: ").strip().upper()
+    code = read_input("Enter code: ").upper()
     
     if len(code) != 6:
         print("❌ Invalid code (should be 6 characters)")
