@@ -6,8 +6,16 @@ Your agent can use a real browser (Chromium) and when it needs login, 2FA, or ca
 
 ## Installation
 
+**Quick install (one-liner):**
 ```bash
 curl -sL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh | bash
+```
+
+**Or clone and install:**
+```bash
+git clone https://github.com/felipegoulu/browser-control.git
+cd browser-control
+bash install.sh
 ```
 
 ## What it does
