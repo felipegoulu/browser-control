@@ -1,0 +1,10 @@
+# Browser Control Skill Configuration
+# Copiá este archivo a tu config de OpenClaw
+
+browser:
+  enabled: true
+  cdpUrl: "http://localhost:9222"
+
+# Agregá estas variables a tu agent o en TOOLS.md:
+# NOVNC_URL: "http://TU_IP_PUBLICA:6080/vnc.html"
+# NOVNC_PASSWORD: "pinchme1"

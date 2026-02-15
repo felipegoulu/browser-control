@@ -1,0 +1,14 @@
+[Unit]
+Description=noVNC WebSocket Proxy
+After=network.target vncserver@1.service
+Requires=vncserver@1.service
+
+[Service]
+Type=simple
+User=%u
+ExecStart=/usr/bin/websockify --web=/usr/share/novnc 6080 localhost:5901
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
