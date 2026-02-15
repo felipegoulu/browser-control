@@ -202,27 +202,14 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     if [ "$NGROK_AUTHENTICATED" != "true" ]; then
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📝 STEP 1: Create ngrok account (free)"
+        echo "🔑 STEP 1: Login to ngrok & copy authtoken"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        echo "Opening ngrok signup page..."
-        sleep 1
-        open_url "https://ngrok.com/signup"
-        echo ""
-        echo "👆 Sign up with Google or email (takes 30 seconds)"
-        echo ""
-        read -p "Press ENTER when you've created your account..."
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "🔑 STEP 2: Copy your authtoken"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "Opening authtoken page..."
+        echo "Opening ngrok dashboard..."
         sleep 1
         open_url "https://dashboard.ngrok.com/get-started/your-authtoken"
         echo ""
-        echo "👆 Click 'Copy' next to your authtoken"
+        echo "👆 Log in (or sign up free) and copy your authtoken"
         echo ""
         read -p "Paste your authtoken here: " NGROK_TOKEN
         
@@ -241,13 +228,12 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔐 STEP 3: Set your Google email"
+    echo "🔐 STEP 2: Set your Google email"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "⚠️  IMPORTANT: This email is the ONLY one that"
-    echo "   can access your browser remotely."
-    echo ""
-    echo "   Enter the email you use to log into Google."
+    echo "⚠️  IMPORTANT: Enter YOUR Google email."
+    echo "   This is the ONLY email that can access your browser."
+    echo "   If you enter the wrong email, you won't be able to get in!"
     echo ""
     read -p "Your Google email: " ALLOWED_EMAIL
     
@@ -259,6 +245,16 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     # Validate email format
     if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
         echo "❌ Invalid email format. Example: you@gmail.com"
+        exit 1
+    fi
+    
+    # Confirm email
+    echo ""
+    read -p "Confirm email (type it again): " CONFIRM_EMAIL
+    
+    if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
+        echo ""
+        echo "❌ Emails don't match. Please run install again."
         exit 1
     fi
     
