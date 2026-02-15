@@ -228,33 +228,64 @@ if [ "$SKIP_NGROK_CONFIG" != "true" ]; then
     
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔐 STEP 2: Set your Google email"
+    echo "🔐 STEP 2: Verify your Google account"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "⚠️  IMPORTANT: Enter YOUR Google email."
-    echo "   This is the ONLY email that can access your browser."
-    echo "   If you enter the wrong email, you won't be able to get in!"
+    echo "This opens Google login to verify your email."
+    echo "Only this email will be able to access your browser."
     echo ""
-    read -p "Your Google email: " ALLOWED_EMAIL
     
-    if [ -z "$ALLOWED_EMAIL" ]; then
-        echo "❌ Email required for security."
-        exit 1
+    # Check for Python
+    PYTHON_CMD=""
+    if command -v python3 &> /dev/null; then
+        PYTHON_CMD="python3"
+    elif command -v python &> /dev/null; then
+        PYTHON_CMD="python"
+    fi
+    
+    if [ -z "$PYTHON_CMD" ]; then
+        echo "⚠️  Python not found. Falling back to manual email entry."
+        echo ""
+        read -p "Your Google email: " ALLOWED_EMAIL
+        read -p "Confirm email (type it again): " CONFIRM_EMAIL
+        
+        if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
+            echo "❌ Emails don't match."
+            exit 1
+        fi
+    else
+        # Run Google OAuth script
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        AUTH_OUTPUT=$($PYTHON_CMD "$SCRIPT_DIR/google-auth.py" 2>&1)
+        AUTH_EXIT=$?
+        
+        echo "$AUTH_OUTPUT"
+        
+        if [ $AUTH_EXIT -ne 0 ]; then
+            echo ""
+            echo "⚠️  Google login failed. Falling back to manual entry."
+            echo ""
+            read -p "Your Google email: " ALLOWED_EMAIL
+            read -p "Confirm email (type it again): " CONFIRM_EMAIL
+            
+            if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
+                echo "❌ Emails don't match."
+                exit 1
+            fi
+        else
+            # Extract email from output
+            ALLOWED_EMAIL=$(echo "$AUTH_OUTPUT" | grep "^GOOGLE_EMAIL=" | cut -d= -f2)
+            
+            if [ -z "$ALLOWED_EMAIL" ]; then
+                echo "❌ Could not get email. Please try again."
+                exit 1
+            fi
+        fi
     fi
     
     # Validate email format
     if [[ ! "$ALLOWED_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        echo "❌ Invalid email format. Example: you@gmail.com"
-        exit 1
-    fi
-    
-    # Confirm email
-    echo ""
-    read -p "Confirm email (type it again): " CONFIRM_EMAIL
-    
-    if [ "$ALLOWED_EMAIL" != "$CONFIRM_EMAIL" ]; then
-        echo ""
-        echo "❌ Emails don't match. Please run install again."
+        echo "❌ Invalid email format."
         exit 1
     fi
     
