@@ -1,65 +1,75 @@
 # 🖥️ Browser Control
 
-Skill de OpenClaw para browser real con acceso remoto.
+OpenClaw skill for real browser with remote access.
 
-Tu agente puede usar un browser real (Chromium) y cuando necesita login, 2FA, o captchas, te manda un link para que tomes control.
+Your agent can use a real browser (Chromium) and when it needs login, 2FA, or captchas, it sends you a link to take control — **from your phone or any device**.
 
-## Instalación
+## Installation
 
 ```bash
 curl -sL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh | bash
 ```
 
-## ¿Qué hace?
+## What it does
 
-1. **Instala** VNC + noVNC + cloudflared + Chromium
-2. **Crea un tunnel** para acceder desde cualquier lugar
-3. **Configura auto-start** para que arranque solo
-4. **Actualiza TOOLS.md** con el link para que el agente lo sepa
+1. **Installs** VNC + noVNC + cloudflared + Chromium
+2. **Creates a tunnel** so you can access from anywhere
+3. **Configures auto-start** so it runs on boot
+4. **Updates TOOLS.md** with the link so your agent knows it
 
-## Flujo
+## Flow
 
 ```
-Vos: "Fijate mi Gmail"
+You: "Check my Gmail"
          │
          ▼
-   Agente abre Gmail
+   Agent opens Gmail
          │
          ▼
-   Gmail pide login
+   Gmail asks for login
          │
          ▼
-   Agente te manda:
-   "🔐 Necesito que te loguees.
-    Entrá acá: https://xxx.trycloudflare.com/vnc.html
+   Agent sends you:
+   "🔐 I need you to log in.
+    Open this link: https://xxx.trycloudflare.com/vnc.html
     Password: pinchme1
-    Avisame cuando termines."
+    Let me know when you're done."
          │
          ▼
-   Vos abrís el link, hacés login
+   You open the link on your phone (Chrome, Safari, any browser)
+   You see the desktop and do the login
          │
          ▼
-   Vos: "listo"
+   You: "done"
          │
          ▼
-   Agente continúa y lee tus emails
+   Agent continues and reads your emails
 ```
 
-## Compatibilidad
+## Access from anywhere
 
-| OS | Estado |
+The noVNC link works on:
+- 📱 **Phone** — Chrome, Safari, any mobile browser
+- 💻 **Computer** — Any browser
+- 📟 **Tablet** — Same link, just open it
+
+No app needed. Just a browser.
+
+## Compatibility
+
+| OS | Status |
 |----|--------|
 | Linux (Ubuntu/Debian) | ✅ |
 | macOS | ✅ |
-| Windows | ❌ (usá WSL) |
+| Windows | ❌ (use WSL) |
 
-## Arquitectura
+## Architecture
 
 ```
 Internet
     │
     ▼
-cloudflared (tunnel gratis)
+cloudflared (free tunnel)
     │
     ▼
 noVNC (web server)
@@ -71,38 +81,38 @@ VNC Server
 Desktop + Chromium ◄── OpenClaw (CDP)
 ```
 
-## Archivos
+## Files
 
 ```
 browser-control/
-├── install.sh          # Instalador principal
-├── SKILL.md            # Instrucciones para el agente
-├── README.md           # Este archivo
-├── config.example.yaml # Ejemplo de config
-└── services/           # Systemd units para auto-start
+├── install.sh          # Main installer
+├── SKILL.md            # Instructions for the agent
+├── README.md           # This file
+├── config.example.yaml # Config example
+└── services/           # Systemd units for auto-start
 ```
 
-## Comandos
+## Commands
 
 ```bash
-# Iniciar (si no está en auto-start)
+# Start (if not auto-starting)
 ~/.openclaw/skills/browser-control/start-tunnel.sh
 
-# Detener
+# Stop
 ~/.openclaw/skills/browser-control/stop-tunnel.sh
 
-# Ver URL actual
+# See current URL
 cat ~/.openclaw/skills/browser-control/config.json
 ```
 
-## Seguridad
+## Security
 
-⚠️ El link es público. Cualquiera con el link + password puede ver tu browser.
+⚠️ The link is public. Anyone with the link + password can see your browser.
 
-- La URL es random y difícil de adivinar
-- Cambia cada vez que reinicia el tunnel
-- El password de VNC agrega una capa de protección
+- The URL is random and hard to guess
+- It changes every time the tunnel restarts
+- The VNC password adds a layer of protection
 
-## Licencia
+## License
 
 MIT
