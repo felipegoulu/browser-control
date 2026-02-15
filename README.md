@@ -9,7 +9,8 @@ When your agent needs you to login, solve a captcha, or do 2FA, it sends you a l
 ## 🚀 Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh -o install.sh
+git clone https://github.com/felipegoulu/browser-control.git
+cd browser-control
 bash install.sh
 ```
 
