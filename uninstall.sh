@@ -7,6 +7,21 @@ set -e
 echo "🗑️  Browser Control - Uninstaller"
 echo "================================="
 echo ""
+echo "This will remove:"
+echo "  - Chromium"
+echo "  - VNC packages (xvfb, x11vnc, novnc, websockify)"
+echo "  - Desktop environment (xfce4) if installed"
+echo "  - ngrok"
+echo "  - Skill config files"
+echo ""
+
+read -p "Are you sure? Type 'yes' to continue: " CONFIRM < /dev/tty
+if [ "$CONFIRM" != "yes" ]; then
+    echo "Cancelled."
+    exit 0
+fi
+
+echo ""
 
 SKILL_DIR=~/.openclaw/skills/browser-control
 
