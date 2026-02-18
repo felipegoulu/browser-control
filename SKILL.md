@@ -82,6 +82,34 @@ Let me know when you're done!
 3. Do the action
 4. Tell you "done"
 
+## Resource Management
+
+**⚠️ IMPORTANT: This runs on a small server. Be efficient!**
+
+### Tab limits
+- **Maximum 3 tabs open at once**
+- Close tabs immediately when done with them
+- Never leave tabs open "for later"
+
+### After each browser task
+1. Close the tab you just used
+2. If you opened multiple tabs, close all except the one you need
+3. Verify with `browser snapshot` that tabs are closed
+
+### Why this matters
+- Chrome eats RAM and CPU per tab
+- Idle tabs still consume resources
+- Too many tabs = server runs out of CPU credits = everything freezes
+
+### Commands to manage tabs
+```
+browser action=close          # Close current tab
+browser action=tabs           # List open tabs
+```
+
+### If the server feels slow
+The server may have run out of CPU credits. Close all tabs and wait a few minutes, or ask the user to reboot the EC2 instance.
+
 ## Security
 
 - Protected by Google OAuth
