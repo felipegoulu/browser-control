@@ -16,11 +16,13 @@ bash install.sh
 
 ### What it installs:
 
-- **VNC server** — Remote desktop (tightvncserver)
+- **Xvfb** — Virtual display (~20MB, no desktop environment)
+- **x11vnc** — VNC server
 - **noVNC** — VNC in the browser (no app needed)
 - **ngrok** — Secure tunnel with Google OAuth
 - **Chromium** — Browser for the agent to use
-- **xfce4** — Lightweight desktop environment
+
+Total: ~30MB (lightweight, no desktop environment)
 
 ### What you'll see:
 
@@ -162,6 +164,16 @@ cat ~/.openclaw/skills/browser-control/config.json
 # Run install again — it will ask for new credentials
 curl -fsSL https://raw.githubusercontent.com/felipegoulu/browser-control/main/install.sh | bash
 ```
+
+---
+
+## 🗑️ Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/felipegoulu/browser-control/main/uninstall.sh | bash
+```
+
+Removes everything: Chromium, VNC, ngrok, configs. You'll be asked to confirm.
 
 ---
 
