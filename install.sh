@@ -1,12 +1,15 @@
 #!/bin/bash
-# Browser Control Skill - Installer
-# Installs VNC + noVNC + ngrok with Google OAuth
+# Browser Control Skill - Lightweight Installer
+# Uses Xvfb + x11vnc (no desktop environment)
 # Linux only (Ubuntu/Debian)
 
 set -e
 
-echo "🖥️  Browser Control - Installer"
-echo "================================"
+echo "🖥️  Browser Control (Lightweight) - Installer"
+echo "=============================================="
+echo ""
+echo "This version uses Xvfb + x11vnc (~30MB)"
+echo "No desktop environment - just Chrome on black background"
 echo ""
 
 #######################################
@@ -52,10 +55,10 @@ chmod 600 $SKILL_DIR/vnc-password
 # INSTALL DEPENDENCIES
 #######################################
 
-echo "📦 Installing dependencies..."
+echo "📦 Installing dependencies (lightweight)..."
 
 sudo apt-get update
-sudo apt-get install -y tightvncserver xfce4 xfce4-terminal xterm novnc websockify curl jq python3
+sudo apt-get install -y xvfb x11vnc novnc websockify curl jq python3
 
 # Chromium
 echo "📦 Installing Chromium..."
@@ -69,26 +72,6 @@ if ! command -v ngrok &> /dev/null; then
     sudo apt-get update
     sudo apt-get install -y ngrok
 fi
-
-#######################################
-# CONFIGURE VNC
-#######################################
-
-echo "🔧 Configuring VNC..."
-mkdir -p ~/.vnc
-echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd
-chmod 600 ~/.vnc/passwd
-
-# VNC startup script
-cat > ~/.vnc/xstartup << 'XSTARTUP'
-#!/bin/bash
-xrdb $HOME/.Xresources 2>/dev/null
-startxfce4 &
-sleep 3
-# Start Chromium with remote debugging
-chromium-browser --no-sandbox --disable-gpu --remote-debugging-port=9222 2>/dev/null &
-XSTARTUP
-chmod +x ~/.vnc/xstartup
 
 #######################################
 # NGROK SETUP
@@ -259,7 +242,7 @@ echo "🔧 Creating start script..."
 
 cat > $SKILL_DIR/start-tunnel.sh << 'STARTSCRIPT'
 #!/bin/bash
-# Browser Control - Start all services
+# Browser Control (Lightweight) - Start all services
 
 set -e
 
@@ -269,7 +252,7 @@ NGROK_CONFIG=$SKILL_DIR/ngrok-config.json
 TOOLS_FILE=~/.openclaw/workspace/TOOLS.md
 VNC_PASSWORD=$(cat $SKILL_DIR/vnc-password 2>/dev/null || echo "")
 
-echo "🖥️  Browser Control - Starting..."
+echo "🖥️  Browser Control (Lightweight) - Starting..."
 echo ""
 
 # Check ngrok config
@@ -284,21 +267,66 @@ if [ -z "$ALLOWED_EMAIL" ] || [ "$ALLOWED_EMAIL" = "null" ]; then
     exit 1
 fi
 
-VNC_PORT=5901
+DISPLAY_NUM=99
+VNC_PORT=5900
 NOVNC_WEB="/usr/share/novnc"
 
 #######################################
-# START VNC
+# START XVFB (Virtual Display)
 #######################################
 
-if pgrep -f "Xtightvnc.*:1" > /dev/null; then
-    echo "✅ VNC already running"
+if pgrep -f "Xvfb.*:$DISPLAY_NUM" > /dev/null; then
+    echo "✅ Xvfb already running on display :$DISPLAY_NUM"
 else
-    echo "🖥️  Starting VNC server..."
-    vncserver -kill :1 2>/dev/null || true
-    vncserver :1 -geometry 1280x800 -depth 24
+    echo "🖥️  Starting Xvfb (virtual display)..."
+    pkill -f "Xvfb.*:$DISPLAY_NUM" 2>/dev/null || true
+    Xvfb :$DISPLAY_NUM -screen 0 1280x720x24 &
+    echo $! > $SKILL_DIR/xvfb.pid
     sleep 2
-    echo "✅ VNC started on display :1"
+    echo "✅ Xvfb started on display :$DISPLAY_NUM"
+fi
+
+export DISPLAY=:$DISPLAY_NUM
+
+#######################################
+# START CHROMIUM
+#######################################
+
+if pgrep -f "chromium.*remote-debugging-port" > /dev/null; then
+    echo "✅ Chromium already running"
+else
+    echo "🌐 Starting Chromium..."
+    chromium-browser --no-sandbox --disable-gpu --remote-debugging-port=9222 \
+        --window-size=1280,720 --window-position=0,0 \
+        --disable-dev-shm-usage \
+        2>/dev/null &
+    echo $! > $SKILL_DIR/chromium.pid
+    sleep 3
+    echo "✅ Chromium started with CDP on port 9222"
+fi
+
+#######################################
+# START X11VNC
+#######################################
+
+if pgrep -f "x11vnc.*display.*:$DISPLAY_NUM" > /dev/null; then
+    echo "✅ x11vnc already running"
+else
+    echo "🔗 Starting x11vnc..."
+    pkill -f "x11vnc" 2>/dev/null || true
+    sleep 1
+    
+    if [ -n "$VNC_PASSWORD" ]; then
+        x11vnc -display :$DISPLAY_NUM -forever -shared -rfbport $VNC_PORT \
+            -passwd "$VNC_PASSWORD" \
+            -bg -o $SKILL_DIR/x11vnc.log
+    else
+        x11vnc -display :$DISPLAY_NUM -forever -shared -rfbport $VNC_PORT \
+            -nopw \
+            -bg -o $SKILL_DIR/x11vnc.log
+    fi
+    sleep 2
+    echo "✅ x11vnc started on port $VNC_PORT"
 fi
 
 #######################################
@@ -316,6 +344,7 @@ fi
 
 websockify --web=$NOVNC_WEB 6080 localhost:$VNC_PORT &
 WEBSOCKIFY_PID=$!
+echo $WEBSOCKIFY_PID > $SKILL_DIR/websockify.pid
 sleep 2
 
 if ! kill -0 $WEBSOCKIFY_PID 2>/dev/null; then
@@ -392,6 +421,7 @@ cat > $CONFIG_FILE << CONF
     "tunnelUrl": "$TUNNEL_URL",
     "allowedEmail": "$ALLOWED_EMAIL",
     "cdpUrl": "http://localhost:9222",
+    "mode": "lightweight",
     "updatedAt": "$(date -Iseconds)"
 }
 CONF
@@ -419,7 +449,7 @@ TOOLS
 echo "📝 TOOLS.md updated"
 echo "📝 Config saved to $CONFIG_FILE"
 echo ""
-echo "🔄 Tunnel running in background (PID: $NGROK_PID)"
+echo "🔄 Services running in background"
 echo "   Stop with: $SKILL_DIR/stop-tunnel.sh"
 STARTSCRIPT
 
@@ -435,7 +465,9 @@ echo "🛑 Stopping Browser Control services..."
 
 pkill -f "ngrok.*http" 2>/dev/null && echo "   ✓ ngrok stopped" || echo "   - ngrok not running"
 pkill -f "websockify.*6080" 2>/dev/null && echo "   ✓ noVNC stopped" || echo "   - noVNC not running"
-vncserver -kill :1 2>/dev/null && echo "   ✓ VNC stopped" || echo "   - VNC not running"
+pkill -f "x11vnc" 2>/dev/null && echo "   ✓ x11vnc stopped" || echo "   - x11vnc not running"
+pkill -f "chromium.*remote-debugging-port" 2>/dev/null && echo "   ✓ Chromium stopped" || echo "   - Chromium not running"
+pkill -f "Xvfb.*:99" 2>/dev/null && echo "   ✓ Xvfb stopped" || echo "   - Xvfb not running"
 
 echo ""
 echo "✅ All services stopped"
@@ -449,12 +481,26 @@ chmod +x $SKILL_DIR/stop-tunnel.sh
 
 cat > $SKILL_DIR/status.sh << 'STATUSSCRIPT'
 #!/bin/bash
-# Browser Control - Status Check
+# Browser Control (Lightweight) - Status Check
 
 SKILL_DIR=~/.openclaw/skills/browser-control
 
-# Check VNC
-if pgrep -f "Xtightvnc.*:1" > /dev/null; then
+# Check Xvfb
+if pgrep -f "Xvfb.*:99" > /dev/null; then
+    XVFB_STATUS="running"
+else
+    XVFB_STATUS="stopped"
+fi
+
+# Check Chromium
+if pgrep -f "chromium.*remote-debugging-port" > /dev/null; then
+    CHROME_STATUS="running"
+else
+    CHROME_STATUS="stopped"
+fi
+
+# Check x11vnc
+if pgrep -f "x11vnc" > /dev/null; then
     VNC_STATUS="running"
 else
     VNC_STATUS="stopped"
@@ -486,12 +532,15 @@ fi
 # Output JSON
 cat << EOF
 {
-  "vnc": "$VNC_STATUS",
+  "xvfb": "$XVFB_STATUS",
+  "chromium": "$CHROME_STATUS",
+  "x11vnc": "$VNC_STATUS",
   "novnc": "$NOVNC_STATUS",
   "tunnel": "$TUNNEL_STATUS",
-  "ready": $([ "$VNC_STATUS" = "running" ] && [ "$NOVNC_STATUS" = "running" ] && [ "$TUNNEL_STATUS" = "running" ] && echo "true" || echo "false"),
+  "ready": $([ "$XVFB_STATUS" = "running" ] && [ "$CHROME_STATUS" = "running" ] && [ "$VNC_STATUS" = "running" ] && [ "$NOVNC_STATUS" = "running" ] && [ "$TUNNEL_STATUS" = "running" ] && echo "true" || echo "false"),
   "url": "$URL",
-  "allowedEmail": "$EMAIL"
+  "allowedEmail": "$EMAIL",
+  "mode": "lightweight"
 }
 EOF
 STATUSSCRIPT
@@ -514,8 +563,11 @@ fi
 
 echo ""
 echo "========================================"
-echo "✅ Installation complete!"
+echo "✅ Installation complete! (Lightweight)"
 echo "========================================"
+echo ""
+echo "📦 Installed: Xvfb + x11vnc + noVNC + Chromium"
+echo "   (No desktop environment - minimal footprint)"
 echo ""
 echo "🔐 Protected by: Google OAuth"
 echo "   Only $ALLOWED_EMAIL can access"
