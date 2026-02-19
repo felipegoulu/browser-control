@@ -4,7 +4,9 @@
 
 When your agent needs you to login, solve a captcha, or do 2FA, it sends you a link. Open it on your phone, do the thing, done.
 
-![Demo](https://github.com/user-attachments/assets/304958d8-393d-4833-9121-0c142aa97145)
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/7ec46b47-23b4-4e78-ba42-ba137d25750a" width="300" />
+</p>
 
 ---
 
