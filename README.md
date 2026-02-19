@@ -4,6 +4,8 @@
 
 When your agent needs you to login, solve a captcha, or do 2FA, it sends you a link. Open it on your phone, do the thing, done.
 
+https://github.com/user-attachments/assets/7ec46b47-23b4-4e78-ba42-ba137d25750a
+
 ---
 
 ## 🚀 Install
