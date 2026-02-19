@@ -107,14 +107,11 @@ Agent continues
 
 ## 🔐 Security
 
-- **No open ports** — All traffic goes through ngrok. Your firewall can block all incoming connections.
+- **Zero open ports** — Works behind NAT, firewalls, and strict security groups
 - **Google OAuth** — Only your Google account can access
 - **No passwords shared** — The agent never sees your credentials
-- **Unique URLs** — Link changes every time the tunnel restarts
 
 Even if someone gets the link, they can't get in without your Google login.
-
-Works behind NAT, corporate firewalls, and strict VPS security groups. Only outbound connections required.
 
 ---
 
